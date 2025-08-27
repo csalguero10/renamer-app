@@ -1,0 +1,10 @@
+flask==3.0.2
+flask-cors==4.0.1
+Werkzeug==3.0.1
+pillow==10.3.0
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+pytesseract==0.3.10
+# Opcional (si usa CNN); comentar si no lo requiere
+torch>=2.1.0
+torchvision>=0.16.0

@@ -1,4 +1,4 @@
-# Digitizer Flow — Web App (Flask + Svelte + Tailwind)
+# Renamer Flow — Web App (Flask + Svelte + Tailwind)
 
 Aplicación web para gestionar el flujo de digitalización de documentos patrimoniales:
 carga, clasificación automática (heurísticas + OCR y CNN opcional), validación/edición masiva,

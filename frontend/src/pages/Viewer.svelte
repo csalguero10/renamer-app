@@ -390,6 +390,16 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
             on:change={(e)=>updateItem({extra: e.target.value})} 
           />
 
+                    <!-- Keywords por página -->
+          <label class="block text-sm mb-1" for="keywords">Keywords</label>
+          <input
+            id="keywords"
+            class="input w-full mb-2"
+            placeholder="comma,separated,terms"
+            bind:value={current.keywords}
+            on:change={(e)=> updateItem({ keywords: e.target.value })}
+          />
+
           <div class="flex items-center gap-2 mb-2">
             <input 
               id="ghost" 

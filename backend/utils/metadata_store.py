@@ -19,5 +19,6 @@ def new_item(image_id: str, path: str, original_filename: str) -> dict:
         "extra": "",
         "ghost_number": False,
         "graphic": False,
+        "keywords": "",
         "new_filename": None,
     }

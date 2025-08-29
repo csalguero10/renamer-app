@@ -28,8 +28,7 @@
     const entry = $detectedEntry || null;
     cat.id_catalogo = $detectedCatalogId || cat.id_catalogo || "";
     cat.title      = entry?.catalog_title || cat.title || "";
-    // Estos campos no venían del CSV original; se quedan tal cual/usuario:
-    // publisher, place, language, keywords
+    // Estos campos son opcionales: publisher, place, language, keywords
     if (!cat.year && entry?.catalog_publication_year != null) {
       cat.year = String(entry.catalog_publication_year);
     }
@@ -67,7 +66,8 @@
       const updates = [];
       for (const [id, fields] of edited.entries()) {
         const payload = { id };
-        ["type","validated","page_number","number_scheme","extra","ghost_number","graphic"].forEach(k => {
+        // 👉 incluye 'keywords' también
+        ["type","validated","page_number","number_scheme","extra","ghost_number","graphic","keywords"].forEach(k => {
           if (k in fields) payload[k] = fields[k];
         });
         updates.push(payload);
@@ -98,32 +98,36 @@
     items.set(data.items);
   }
 
+  // ===== Helpers de catálogo para export =====
+  function buildCatalogOverride() {
+    return {
+      catalog_id: (cat.id_catalogo || "").trim() || null,
+      catalog_title: (cat.title || "").trim() || "",
+      catalog_publisher: (cat.publisher || "").trim() || "",
+      catalog_place: (cat.place || "").trim() || "",
+      catalog_publication_year: cat.year ? parseInt(cat.year, 10) : null,
+      catalog_language: (cat.language || "").trim() || "",
+      catalog_keywords: (cat.keywords || "").trim() || ""
+    };
+  }
+
   // ====== EXPORTACIÓN ======
-  // Exporta con metadatos de catálogo (cat) aunque no haya CSV.
+  // Exporta con metadatos de catálogo (cat) aunque no haya CSV (usa /export)
   async function confirmAndExportWithCatalog() {
     loading = true; error = "";
     try {
       const body = {
         session_id: $sessionId,
-        catalog_override: {
-          catalog_id: (cat.id_catalogo || "").trim() || null,
-          catalog_title: (cat.title || "").trim() || null,
-          catalog_publisher: (cat.publisher || "").trim() || null,
-          catalog_place: (cat.place || "").trim() || null,
-          catalog_publication_year: cat.year ? parseInt(cat.year, 10) : null,
-          catalog_language: (cat.language || "").trim() || null,
-          catalog_keywords: (cat.keywords || "").trim() || null
-        }
+        catalog_override: buildCatalogOverride()
       };
-      // usamos /export_confirm que acepta overrides
-      const resp = await fetch(`${$API_BASE}/export_confirm`, {
+      const resp = await fetch(`${$API_BASE}/export`, {
         method: "POST",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify(body)
       });
       if (!resp.ok) {
-        const j = await resp.json().catch(()=>({}));
-        throw new Error(j.error || "Export failed");
+        const txt = await resp.text();
+        throw new Error(txt || "Export failed");
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
@@ -144,28 +148,41 @@
   // ====== PREVIEW POP-UP ======
   let showPreview = false;
   let previewRows = [];
+  let previewHeader = null; // objeto de cabecera del catálogo devuelto por /export_preview
+
   async function openPreview() {
     loading = true; error = "";
     try {
-      // Asegurar nombres y estado de catálogo detectado
+      // Asegurar nombres al día y estado de catálogo
       await fetch(`${$API_BASE}/preview?session_id=${$sessionId}`);
       await refreshCatalogStatus();
       initCatalogForm();
 
-      // Construir preview con lo que tenemos en $items + metadatos del formulario cat
-      previewRows = ($items || []).map(it => ({
-        id: it.id,
-        thumb: `${$API_BASE}/thumb/${$sessionId}/${it.id}`,
-        original_filename: it.original_filename,
-        new_filename: it.new_filename,
-        type: it.type,
-        validated: !!it.validated,
-        page_number: it.page_number,
-        number_scheme: it.number_scheme || "arabic",
-        extra: it.extra || "",
-        ghost_number: !!it.ghost_number,
-        graphic: !!it.graphic
-      }));
+      // Pedir previsualización real al backend (incluye cabecera + páginas)
+      const body = {
+        session_id: $sessionId,
+        catalog_override: buildCatalogOverride()
+      };
+      const resp = await fetch(`${$API_BASE}/export_preview`, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Failed to build preview.");
+
+      // Cabecera (primer objeto)
+      previewHeader = data.metadata && data.metadata.length ? data.metadata[0] : null;
+
+      // Filas por página (del backend), unimos con thumb por original_filename
+      const byOriginal = new Map($items.map(it => [it.original_filename, it]));
+      previewRows = (data.metadata || []).slice(1).map(row => {
+        const it = byOriginal.get(row.original_filename);
+        return {
+          ...row,
+          thumb: it ? `${$API_BASE}/thumb/${$sessionId}/${it.id}` : null
+        };
+      });
 
       showPreview = true;
     } catch (e) {
@@ -326,11 +343,11 @@
                        on:change={(e)=> onEdit(it.id, "extra", e.target.value)} />
               </div>
 
-                            <div>
+              <div>
                 <label class="block text-sm mb-1">Keywords</label>
                 <input class="input w-full" type="text"
-                      value={it.keywords || ""}
-                      on:change={(e)=> onEdit(it.id, "keywords", e.target.value)} />
+                       value={it.keywords || ""}
+                       on:change={(e)=> onEdit(it.id, "keywords", e.target.value)} />
               </div>
 
               <div class="flex items-center gap-2">
@@ -403,15 +420,15 @@
       </div>
 
       <div class="p-4 overflow-auto">
-        <!-- Resumen de metadatos de catálogo -->
+        <!-- Resumen de metadatos de catálogo (de backend si está, si no lo que hay en form) -->
         <div class="mb-4 text-sm grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
-          <div><span class="text-gray-500">id_catalogo:</span> {cat.id_catalogo || "—"}</div>
-          <div><span class="text-gray-500">title:</span> {cat.title || "—"}</div>
-          <div><span class="text-gray-500">publisher:</span> {cat.publisher || "—"}</div>
-          <div><span class="text-gray-500">place:</span> {cat.place || "—"}</div>
-          <div><span class="text-gray-500">year:</span> {cat.year || "—"}</div>
-          <div><span class="text-gray-500">language:</span> {cat.language || "—"}</div>
-          <div class="sm:col-span-2 lg:col-span-3"><span class="text-gray-500">keywords:</span> {cat.keywords || "—"}</div>
+          <div><span class="text-gray-500">id_catalogo:</span> {previewHeader?.catalog_id ?? (cat.id_catalogo || "—")}</div>
+          <div><span class="text-gray-500">title:</span> {previewHeader?.catalog_title ?? (cat.title || "—")}</div>
+          <div><span class="text-gray-500">publisher:</span> {previewHeader?.catalog_publisher ?? (cat.publisher || "—")}</div>
+          <div><span class="text-gray-500">place:</span> {previewHeader?.catalog_place ?? (cat.place || "—")}</div>
+          <div><span class="text-gray-500">year:</span> {previewHeader?.catalog_publication_year ?? (cat.year || "—")}</div>
+          <div><span class="text-gray-500">language:</span> {previewHeader?.catalog_language ?? (cat.language || "—")}</div>
+          <div class="sm:col-span-2 lg:col-span-3"><span class="text-gray-500">keywords:</span> {previewHeader?.catalog_keywords ?? (cat.keywords || "—")}</div>
         </div>
 
         <table class="w-full text-sm">
@@ -429,7 +446,11 @@
             {#each previewRows as r}
               <tr class="border-b">
                 <td class="py-2 pr-3">
-                  <img src={r.thumb} alt={r.original_filename} class="w-14 h-14 object-cover rounded-md border" />
+                  {#if r.thumb}
+                    <img src={r.thumb} alt={r.original_filename} class="w-14 h-14 object-cover rounded-md border" />
+                  {:else}
+                    —
+                  {/if}
                 </td>
                 <td class="py-2 pr-3">{r.original_filename}</td>
                 <td class="py-2 pr-3">{r.new_filename}</td>

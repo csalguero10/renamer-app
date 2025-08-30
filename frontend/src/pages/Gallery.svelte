@@ -16,14 +16,27 @@
   });
 
   // ---------------- Acciones backend ----------------
+  let isClassifying = false;
+  let classifyError = "";
+
   async function classify() {
-    const resp = await fetch(`${$API_BASE}/classify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: $sessionId })
-    });
-    const data = await resp.json();
-    items.set(data.items);
+    if (isClassifying) return;
+    isClassifying = true;
+    classifyError = "";
+    try {
+      const resp = await fetch(`${$API_BASE}/classify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: $sessionId })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Error clasificando");
+      items.set(data.items);
+    } catch (e) {
+      classifyError = e.message || "No se pudo clasificar.";
+    } finally {
+      isClassifying = false;
+    }
   }
 
   async function refreshPreview() {
@@ -83,7 +96,7 @@
   let showLightbox = false;
   let lightboxIndex = 0;
 
-  // La lista del lightbox es: si hay selección, sólo seleccionados (en el orden de 'filtered'); si no, todo 'filtered'
+  // La lista del lightbox: si hay selección, sólo seleccionados (en orden de 'filtered'); si no, todo 'filtered'
   $: selectedIds = Array.from($selection);
   $: lightboxList = (selectedIds.length
     ? filtered.filter(it => selectedIds.includes(it.id))
@@ -163,7 +176,7 @@
     const set = new Set(
       list.map(it => it?.type).filter(t => typeof t === "string" && t.trim().length > 0)
     );
-    if (set.size === 0) return "blank";       // No hay tipos asignados aún (no se ha clasificado)
+    if (set.size === 0) return "blank";       // No hay tipos asignados aún
     if (set.size === 1) return Array.from(set)[0]; // Mismo tipo en toda la selección
     return "__mixed";                          // Mezcla de tipos
   }
@@ -179,6 +192,66 @@
       uiBulkType = computeUiBulkType(selectedList);
       lastBulkSig = sig;
     }
+  }
+
+  // ============ PASO 2: Único botón "Aplicar cambios" (condicional) ============
+  async function applyUnifiedChanges() {
+    const ids = Array.from($selection);
+    if (!ids.length) return;
+
+    // Lee controles
+    const rawType = document.getElementById('bulkType').value;
+    const type = (rawType === "blank" || rawType === "__mixed") ? null : (rawType || null);
+
+    const valSel = document.getElementById('bulkVal').value;
+    const validated = valSel === "" ? null : (valSel === "true");
+
+    const keywords = (document.getElementById('bulkKeywords').value || "").trim();
+    const graphic = document.getElementById('bulkGraphic').checked;
+
+    const startRaw = document.getElementById('bulkStart').value;
+    const stepRaw = document.getElementById('bulkStep').value;
+    const scheme = document.getElementById('bulkScheme').value;
+    const extra = document.getElementById('bulkExtra').value || "";
+    const ghost = document.getElementById('bulkGhost').checked;
+
+    // Construye updates por ítem
+    const updates = ids.map(id => {
+      const u = { id };
+      if (type !== null) u.type = type;
+      if (validated !== null) u.validated = validated;
+      u.graphic = graphic;
+      if (keywords !== "") u.keywords = keywords;
+      return u;
+    });
+
+    // Sólo numeración si hay "inicio" rellenado
+    let bulk_numbering = null;
+    if (startRaw !== "" && startRaw != null) {
+      const start = parseInt(startRaw, 10);
+      const step = parseInt(stepRaw || "1", 10);
+      bulk_numbering = { ids, start, step, scheme, extra, ghost };
+    }
+
+    const payload = {
+      session_id: $sessionId,
+      updates,
+      bulk_numbering
+    };
+
+    const resp = await fetch(`${$API_BASE}/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      alert(data.error || "No se pudieron aplicar los cambios.");
+      return;
+    }
+    items.set(data.items);
+    clearSelection();
+    anchorIndex = null;
   }
 </script>
 
@@ -199,25 +272,39 @@
         </div>
       </div>
 
-      <div class="mt-2 flex flex-wrap items-end gap-2">
-        <!-- Izquierda: acción principal -->
-        <button class="btn" type="button" on:click={classify}>
-          Clasificación automática
-        </button>
+      <div class="mt-2 flex flex-wrap items-end gap-3">
+        <!-- Acción principal -->
+        <div class="flex items-center gap-3">
+          <button class="btn" type="button" on:click={classify} disabled={isClassifying} aria-busy={isClassifying}>
+            {isClassifying ? "Clasificando..." : "Clasificación automática"}
+          </button>
+
+          {#if isClassifying}
+            <!-- Indicador al lado del botón -->
+            <div class="flex items-center gap-2 text-sm text-gray-600" role="status" aria-live="polite">
+              <span class="inline-block w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin"></span>
+              Procesando…
+            </div>
+          {/if}
+
+          {#if classifyError}
+            <div class="text-sm text-red-600">{classifyError}</div>
+          {/if}
+        </div>
 
         <!-- Derecha: seleccionar/limpiar + filtros -->
         <div class="ml-auto flex flex-wrap items-end gap-2">
-          <button class="btn" type="button" on:click={toggleSelectAll}>
+          <button class="btn" type="button" on:click={toggleSelectAll} disabled={isClassifying}>
             {filtered.length>0 && filtered.every(it => $selection.has(it.id)) ? "Deseleccionar todas" : "Seleccionar todas"}
           </button>
 
-          <button class="btn btn-outline" type="button" on:click={clearSelection}>
+          <button class="btn btn-outline" type="button" on:click={clearSelection} disabled={isClassifying}>
             Limpiar selección
           </button>
 
           <div>
             <label class="block text-sm" for="filterStatus">Estado</label>
-            <select id="filterStatus" class="input" bind:value={filterStatus}>
+            <select id="filterStatus" class="input" bind:value={filterStatus} disabled={isClassifying}>
               <option value="all">Todos</option>
               <option value="pendiente">Pendiente</option>
               <option value="validada">Validada</option>
@@ -226,7 +313,7 @@
 
           <div>
             <label class="block text-sm" for="filterType">Tipo</label>
-            <select id="filterType" class="input" bind:value={filterType}>
+            <select id="filterType" class="input" bind:value={filterType} disabled={isClassifying}>
               <option value="all">Todos</option>
               {#each types as t}<option value={t}>{t}</option>{/each}
             </select>
@@ -313,164 +400,103 @@
     </div>
   </section>
 
-  <!-- ===== SIDEBAR: PASO 2 (fijo, con su propio scroll si hiciera falta) ===== -->
+  <!-- ===== SIDEBAR: PASO 2 (filas + botón unificado) ===== -->
   <aside class="hidden lg:block">
     <div class="card h-full overflow-auto">
       <h3 class="font-semibold">Paso 2: Asignar Metadatos</h3>
 
-      <div class="mt-3 grid gap-4 md:grid-cols-2">
-        <!-- Columna A: Asignación general -->
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm" for="bulkType">Asignar tipo</label>
-            <!-- Select controlado por uiBulkType para (— / tipo / Varios tipos) -->
-            <select id="bulkType" class="input" bind:value={uiBulkType}>
-              <option value="blank">—</option>
-              <option value="__mixed" disabled>Varios tipos</option>
-              {#each types as t}<option value={t}>{t}</option>{/each}
-            </select>
-            <div class="text-[11px] text-gray-500 mt-1">
-              {#if uiBulkType === 'blank'}Sin selección o sin tipo asignado.{/if}
-              {#if uiBulkType === '__mixed'}Selección mixta de tipos.{/if}
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm" for="bulkVal">Validación</label>
-            <select id="bulkVal" class="input">
-              <option value="">—</option>
-              <option value="true">Marcar validada</option>
-              <option value="false">Marcar pendiente</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm" for="bulkKeywords">Keywords (opcional)</label>
-            <input id="bulkKeywords" type="text" class="input" placeholder="palabra1, palabra2, ..." />
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input id="bulkGraphic" type="checkbox" />
-            <label for="bulkGraphic">¿Hay gráfico?</label>
-          </div>
-
-          <div class="pt-1">
-            <button
-              class="btn w-full"
-              type="button"
-              on:click={async () => {
-                const ids = Array.from($selection);
-                if (!ids.length) return;
-
-                // Ignora "blank" o "__mixed" para no sobreescribir por accidente
-                const raw = document.getElementById('bulkType').value;
-                const type = (raw === "blank" || raw === "__mixed") ? null : (raw || null);
-
-                const valSel = document.getElementById('bulkVal').value;
-                const validated = valSel === "" ? null : (valSel === "true");
-                const graphic = document.getElementById('bulkGraphic').checked;
-                const keywords = (document.getElementById('bulkKeywords').value || "").trim();
-
-                const updates = ids.map(id => {
-                  const u = { id };
-                  if (type !== null) u.type = type;
-                  if (validated !== null) u.validated = validated;
-                  u.graphic = graphic;
-                  if (keywords !== "") u.keywords = keywords;
-                  return u;
-                });
-
-                const resp = await fetch(`${$API_BASE}/validate`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ session_id: $sessionId, updates })
-                });
-                const data = await resp.json();
-                if (resp.ok) {
-                  items.set(data.items);
-                  clearSelection();
-                  anchorIndex = null;
-                } else {
-                  alert(data.error || "No se pudo aplicar cambios.");
-                }
-              }}>
-              Aplicar
-            </button>
+      <!-- Fila 1: tipo + validación -->
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm" for="bulkType">Asignar tipo</label>
+          <select id="bulkType" class="input" bind:value={uiBulkType}>
+            <option value="blank">—</option>
+            <option value="__mixed" disabled>Varios tipos</option>
+            {#each types as t}<option value={t}>{t}</option>{/each}
+          </select>
+          <div class="text-[11px] text-gray-500 mt-1">
+            {#if uiBulkType === 'blank'}Sin selección o sin tipo asignado.{/if}
+            {#if uiBulkType === '__mixed'}Selección mixta de tipos.{/if}
           </div>
         </div>
 
-        <!-- Columna B: Numeración -->
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm" for="bulkStart">Numeración: inicio</label>
-            <input id="bulkStart" type="number" class="input" placeholder="1" />
-          </div>
+        <div>
+          <label class="block text-sm" for="bulkVal">Validación</label>
+          <select id="bulkVal" class="input">
+            <option value="">—</option>
+            <option value="true">Marcar validada</option>
+            <option value="false">Marcar pendiente</option>
+          </select>
+        </div>
+      </div>
 
-          <div>
-            <label class="block text-sm" for="bulkStep">Intervalo</label>
-            <input id="bulkStep" type="number" class="input" placeholder="1" value="1" />
-          </div>
-
-          <div>
-            <label class="block text-sm" for="bulkScheme">Esquema</label>
-            <select id="bulkScheme" class="input">
-              <option value="arabic">Arábiga</option>
-              <option value="roman">Romana</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm" for="bulkExtra">Extra (bis, a, v)</label>
-            <input id="bulkExtra" type="text" class="input" placeholder="bis" />
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input id="bulkGhost" type="checkbox" />
-            <label for="bulkGhost">Número fantasma</label>
-          </div>
-
-          <div class="pt-1">
-            <button
-              class="btn w-full"
-              type="button"
-              on:click={() => {
-                const ids = Array.from($selection);
-                if (!ids.length) return;
-
-                const startRaw = document.getElementById('bulkStart').value;
-                if (!startRaw) return;
-                const start = parseInt(startRaw, 10);
-                const step = parseInt(document.getElementById('bulkStep').value || "1", 10);
-                const scheme = document.getElementById('bulkScheme').value;
-                const extra = document.getElementById('bulkExtra').value || "";
-                const ghost = document.getElementById('bulkGhost').checked;
-
-                bulkAssign({ start, step, scheme, extra, ghost }).then(() => {
-                  clearSelection();
-                  anchorIndex = null;
-                });
-              }}>
-              Aplicar numeración
-            </button>
-          </div>
+      <!-- Fila 2: inicio + intervalo -->
+      <div class="mt-3 grid grid-cols-2 gap-3 items-start">
+        <div>
+          <label class="block text-sm" for="bulkStart">Numeración: inicio</label>
+          <input id="bulkStart" type="number" class="input" placeholder="1" aria-describedby="help-start" />
+          <div id="help-start" class="mt-1 text-[11px] text-gray-500">Sólo si aplica</div>
         </div>
 
-        <!-- Validación (ancho completo) -->
-        <div class="md:col-span-2">
-          <hr class="my-3" />
-          <button
-            class="btn w-full"
-            type="button"
-            on:click={() => {
-              bulkAssign({ validated: true }).then(() => {
-                clearSelection();
-                anchorIndex = null;
-              });
-            }}>
-            Validar selección
-          </button>
+        <div>
+          <label class="block text-sm" for="bulkStep">Intervalo</label>
+          <input id="bulkStep" type="number" class="input" placeholder="1" value="1" />
         </div>
+      </div>
 
+
+      <!-- Fila 3: esquema + extra -->
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm" for="bulkScheme">Esquema</label>
+          <select id="bulkScheme" class="input">
+            <option value="arabic">Arábiga</option>
+            <option value="roman">Romana</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm" for="bulkExtra">Extra (bis, a, v)</label>
+          <input id="bulkExtra" type="text" class="input" placeholder="bis" />
+        </div>
+      </div>
+
+      <!-- Fila 4: ghost + graphic -->
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <label class="flex items-center gap-2">
+          <input id="bulkGhost" type="checkbox" />
+          <span>Número fantasma</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input id="bulkGraphic" type="checkbox" />
+          <span>¿Hay gráfico?</span>
+        </label>
+      </div>
+
+      <!-- Fila 5: keywords full-width -->
+      <div class="mt-3">
+        <label class="block text-sm" for="bulkKeywords">Keywords (opcional)</label>
+        <input id="bulkKeywords" type="text" class="input" placeholder="palabra1, palabra2, ..." />
+      </div>
+
+      <!-- Fila 6: separador + botón unificado -->
+      <hr class="my-4" />
+      <button class="btn w-full" type="button" on:click={applyUnifiedChanges}>
+        Aplicar cambios
+      </button>
+
+      <!-- Fila 7: Validar selección (secundario) -->
+      <div class="mt-2">
+        <button
+          class="btn btn-outline w-full"
+          type="button"
+          on:click={() => {
+            bulkAssign({ validated: true }).then(() => {
+              clearSelection();
+              anchorIndex = null;
+            });
+          }}>
+          Validar selección
+        </button>
       </div>
     </div>
   </aside>
@@ -481,15 +507,14 @@
      ========================== -->
 {#if showLightbox && lightboxList.length}
   <div class="fixed inset-0 z-50">
-    <!-- Fondo clickable (cierra) -->
     <button
       type="button"
       class="absolute inset-0 bg-black/80 z-0"
       aria-label="Cerrar (clic fuera)"
       title="Cerrar (clic fuera)"
       on:click={closeLightbox}
-    />
-    <!-- Contenido por encima -->
+    ></button>
+
     <div class="relative z-10 w-full h-full flex items-center justify-center">
       <img
         src={`${$API_BASE}/file_preview/${$sessionId}/${lightboxList[lightboxIndex].id}?w=2400`}
@@ -497,7 +522,6 @@
         class="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
         draggable="false"
       />
-      <!-- Cerrar -->
       <button
         class="absolute top-3 right-3 btn"
         type="button"
@@ -505,7 +529,6 @@
         aria-label="Cerrar vista grande"
         title="Cerrar"
       >✕</button>
-      <!-- Prev / Next -->
       <button
         class="absolute left-3 top-1/2 -translate-y-1/2 btn"
         type="button"
@@ -520,7 +543,6 @@
         aria-label="Siguiente"
         title="Siguiente"
       >→</button>
-      <!-- Indicador -->
       <div class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 px-3 py-1 rounded-full">
         {lightboxIndex + 1} / {lightboxList.length}
       </div>

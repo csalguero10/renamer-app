@@ -1,8 +1,7 @@
 # classifiers/heuristics.py
 # ------------------------------------------------------------
 # Heurísticas robustas para:
-# 1) Detectar páginas "en blanco" (funcionalmente sin contenido)
-#    -> basado en bordes + contornos, NO en color absoluto.
+# 1) Detectar páginas "en blanco" -> basado en bordes + contornos, NO en color absoluto.
 # 2) Distinguir "ilustración" vs "texto" combinando densidad
 #    de bordes con OCR (cantidad de palabras).
 # ------------------------------------------------------------

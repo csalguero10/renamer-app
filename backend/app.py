@@ -1,16 +1,15 @@
-import os, io, uuid, json, shutil, csv, zipfile
+import os, io, uuid, json, shutil, csv, zipfile, re
 from typing import Optional, Dict, Any, List
 
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image, ImageOps
 
-# ---- Utilidades propias (las tuyas existentes) ----
+# ---- Utilidades existentes ----
 from utils.file_utils import is_allowed, ensure_session_dirs, save_upload, thumb_path, make_thumbnail
 from utils.metadata_store import new_session_state, new_item
 from utils.renamer import compute_new_name
-# Si prefieres seguir usando tu export_zip, puedes eliminar el ZIP manual de abajo y llamar a esa utilidad
-# from utils.export_utils import export_zip
+# from utils.export_utils import export_zip  # (si prefieres tu helper)
 
 from classifiers.heuristics import guess_type
 from classifiers.cnn import predict_with_cnn
@@ -34,6 +33,9 @@ def get_state(session_id: str) -> Optional[Dict[str, Any]]:
         if os.path.isdir(session_dir):
             state = new_session_state(session_id)
             SESSIONS[session_id] = state
+    # Asegura campos base
+    if state is not None and "label" not in state:
+        state["label"] = None  # nombre amigable opcional
     return state
 
 
@@ -48,10 +50,7 @@ def ensure_catalog(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def extract_catalog_id_from_name(filename: str) -> Optional[str]:
-    """
-    Extrae ID tipo 'BO0624_5445' de nombres como 'BO0624_5445_00001.jpg'.
-    Si no puede, devuelve None.
-    """
+    """Extrae ID tipo 'BO0624_5445' de nombres como 'BO0624_5445_00001.jpg'."""
     base = os.path.splitext(os.path.basename(filename))[0]
     parts = base.split("_")
     if len(parts) >= 2 and parts[0] and parts[1]:
@@ -132,7 +131,6 @@ def build_metadata_array(
         return default
 
     header["catalog_id"] = pick("catalog_id", detected_id)
-    # Resto de campos; se incluyen aunque estén vacíos para consistencia con tu ejemplo
     header["catalog_title"] = pick("catalog_title", "")
     header["catalog_author"] = pick("catalog_author", "")
     header["catalog_publication_year"] = pick("catalog_publication_year", None)
@@ -154,17 +152,15 @@ def build_metadata_array(
 
     pages: List[Dict[str, Any]] = []
     for it in state["items"]:
-        # page_number: si no existe, usa None (-> null en JSON)
         page_num = it.get("page_number", None)
         page_keywords = it.get("keywords", "")  # vacío si no hay
-
         pages.append({
             "original_filename": it["original_filename"],
             "new_filename": it.get("new_filename"),
             "type": it.get("type"),
             "graphic": bool(it.get("graphic", False)),
             "validated": bool(it.get("validated", False)),
-            "page_number": page_num if page_num is not False else None,  # normaliza False a null
+            "page_number": page_num if page_num is not False else None,
             "catalog_id": header["catalog_id"],
             "keywords": page_keywords
         })
@@ -172,10 +168,51 @@ def build_metadata_array(
     return [header] + pages
 
 
+def nice_export_basename(state: Dict[str, Any], session_id: str) -> str:
+    """
+    Devuelve un nombre corto y seguro para el ZIP:
+    label (si existe) -> catalog_id detectado -> primeros 8 del uuid.
+    """
+    label = (state.get("label") or "").strip()
+    cat_id = ((state.get("catalog") or {}).get("detected_id") or "").strip()
+    base = label or cat_id or session_id.replace("-", "")[:8].upper()
+    # Sanitiza para filesystem
+    base = re.sub(r"[^A-Za-z0-9_\-]+", "_", base)
+    if not base:
+        base = session_id.replace("-", "")[:8].upper()
+    return base
+
+
 # -------------------- Endpoints --------------------
 @app.route("/ping")
 def ping():
     return jsonify({"ok": True})
+
+
+# ---------- Etiqueta de sesión (nombre amigable) ----------
+@app.get("/session_label_get")
+def session_label_get():
+    session_id = request.args.get("session_id")
+    if not session_id:
+        return jsonify({"error": "missing session_id"}), 400
+    st = get_state(session_id)
+    if not st:
+        return jsonify({"error": "session not found"}), 404
+    return jsonify({"session_id": session_id, "label": st.get("label") or ""})
+
+
+@app.post("/session_label_set")
+def session_label_set():
+    data = request.get_json(force=True)
+    session_id = data.get("session_id")
+    if not session_id:
+        return jsonify({"error": "missing session_id"}), 400
+    st = get_state(session_id)
+    if not st:
+        return jsonify({"error": "session not found"}), 404
+    label = (data.get("label") or "").strip() or None
+    st["label"] = label
+    return jsonify({"session_id": session_id, "label": label or ""})
 
 
 @app.route("/upload", methods=["POST"])
@@ -217,12 +254,12 @@ def upload():
         first_name = state["items"][0]["original_filename"]
         detected = extract_catalog_id_from_name(first_name)
         state["catalog"]["detected_id"] = detected
-        # Vincular entrada si ya hay CSV cargado
         entry = state.get("catalog_map", {}).get(detected) if detected else None
         state["catalog"]["entry"] = entry
 
     return jsonify({
         "session_id": session_id,
+        "label": state.get("label") or "",
         "count": len(state["items"]),
         "items": state["items"],
         "catalog": state["catalog"]
@@ -283,6 +320,7 @@ def upload_csv():
         return jsonify({
             "ok": True,
             "session_id": session_id,
+            "label": state.get("label") or "",
             "loaded": len(catalog_map),
             "detected_id": detected,
             "entry": entry
@@ -306,6 +344,7 @@ def catalog_status():
     state["catalog"]["entry"] = entry
     return jsonify({
         "session_id": session_id,
+        "label": state.get("label") or "",
         "detected_id": detected,
         "entry": entry
     })
@@ -411,10 +450,7 @@ def preview():
 # ------- Export preview (para modal en el frontend) -------
 @app.post("/export_preview")
 def export_preview():
-    """
-    Devuelve el JSON de metadata (header + páginas) sin crear archivos.
-    Admite 'catalog_override' en el body para sobreescribir campos del catálogo.
-    """
+    """Devuelve el JSON de metadata (header + páginas) sin crear archivos."""
     data = request.get_json(force=True)
     session_id = data.get("session_id")
     if not session_id:
@@ -477,7 +513,6 @@ def export():
         try:
             shutil.copy2(src, dst)
         except Exception:
-            # Si no se puede copiar tal cual (formatos raros), intenta re-salvar como JPEG
             try:
                 with Image.open(src) as im:
                     im = ImageOps.exif_transpose(im)
@@ -488,22 +523,19 @@ def export():
                         im = bg
                     elif im.mode not in ("RGB",):
                         im = im.convert("RGB")
-                    # Asegurar extensión .jpg si estamos convirtiendo
                     base_no_ext, _ = os.path.splitext(dst)
                     dst = base_no_ext + ".jpg"
                     im.save(dst, format="JPEG", quality=90)
             except Exception:
-                # Salta el archivo si todo falla
                 continue
 
-    # Crear ZIP
+    # Crear ZIP (nombre de archivo físico interno puede ser fijo,
+    # el nombre que ve el usuario lo controlamos con download_name)
     zip_path = os.path.join(WORKSPACE, session_id, f"export_{session_id}.zip")
     if os.path.exists(zip_path):
         os.remove(zip_path)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Añadir metadata.json
         zf.write(meta_path, arcname="metadata.json")
-        # Añadir imágenes
         for name in os.listdir(export_dir):
             if name == "metadata.json":
                 continue
@@ -511,7 +543,10 @@ def export():
             if os.path.isfile(full):
                 zf.write(full, arcname=name)
 
-    return send_file(zip_path, as_attachment=True, download_name=f"export_{session_id}.zip")
+    # <- aquí aplicamos el nombre "bonito"
+    pretty = nice_export_basename(state, session_id)
+    download_name = f"export_{pretty}.zip"
+    return send_file(zip_path, as_attachment=True, download_name=download_name)
 
 
 # -------------------- Archivos / Previews --------------------
@@ -547,8 +582,7 @@ def serve_thumb(session_id, image_id):
 @app.route("/file_preview/<session_id>/<image_id>", methods=["GET"])
 def serve_preview(session_id, image_id):
     """
-    Renderiza una vista previa web-segura (JPEG) para cualquier formato original (TIFF, PNG con alfa, CMYK, etc.).
-    Soporta query ?w=1600 para limitar ancho.
+    Renderiza una vista previa web-segura (JPEG). Soporta ?w=1600 para limitar ancho.
     """
     state = get_state(session_id)
     if not state:
@@ -559,7 +593,6 @@ def serve_preview(session_id, image_id):
             try:
                 with Image.open(it["path"]) as im:
                     im = ImageOps.exif_transpose(im)
-                    # Asegurar espacio visible
                     if im.mode in ("RGBA", "LA", "P"):
                         im = im.convert("RGBA")
                         bg = Image.new("RGB", im.size, (255, 255, 255))

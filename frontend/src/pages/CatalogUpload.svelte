@@ -1,16 +1,34 @@
 <script>
+  import { onMount } from "svelte";
   import { sessionId, API_BASE } from "../lib/stores.js";
   import {
     uploadCatalogCSV,
     refreshCatalogStatus,
     csvLoaded,
     catalogStatusText,
+    detectedCatalogId,
   } from "../lib/catalogStore.js";
+
+  // 👉 nombre de sesión “bonito”
+  import { sessionLabel, fetchSessionLabel } from "../lib/storesSessionLabel.js";
+  import { niceSession } from "../lib/utils/niceSession.js";
 
   let csvFile = null;
   let csvUploading = false;
   let csvError = "";
   let csvSuccess = "";
+
+  // nombre a mostrar (reactivo)
+  $: displaySession = niceSession($sessionId, $sessionLabel, $detectedCatalogId);
+
+  onMount(() => {
+    if ($sessionId) fetchSessionLabel($API_BASE, $sessionId);
+  });
+
+  // si cambia la sesión, vuelve a pedir el label
+  $: if ($sessionId) {
+    fetchSessionLabel($API_BASE, $sessionId);
+  }
 
   async function handleCsvUpload() {
     csvError = "";
@@ -23,6 +41,8 @@
         `CSV cargado${res?.loaded ? ` (entradas: ${res.loaded})` : ""}` +
         `${res?.detected_id ? ` — detectado: ${res.detected_id}` : ""}.`;
       await refreshCatalogStatus();
+      // refresca el label por si el backend lo creó en esta sesión
+      if ($sessionId) await fetchSessionLabel($API_BASE, $sessionId);
     } catch (e) {
       csvError = e?.message || "Error al subir el CSV.";
     } finally {
@@ -36,6 +56,7 @@
     try {
       await refreshCatalogStatus();
       csvSuccess = "Estado actualizado.";
+      if ($sessionId) await fetchSessionLabel($API_BASE, $sessionId);
     } catch {
       csvError = "No se pudo actualizar el estado.";
     }
@@ -46,7 +67,7 @@
   <div class="flex items-center justify-between">
     <h2 class="text-lg font-semibold">Catálogo maestro (CSV opcional)</h2>
     <div class="text-sm text-gray-600">
-      Sesión: <span class="font-mono">{$sessionId || "—"}</span>
+      Sesión: <span class="font-mono">{displaySession || "—"}</span>
     </div>
   </div>
 
@@ -94,7 +115,7 @@
     </div>
   </details>
 
-  <!-- Estado CSV (nueva posición dentro del mismo card) -->
+  <!-- Estado CSV (dentro del mismo card) -->
   <div class="mt-4 border-t pt-3">
     <div class="flex flex-wrap items-center gap-2">
       <span class="badge">{ $csvLoaded ? "CSV cargado" : "CSV no cargado" }</span>

@@ -1,8 +1,14 @@
 <script>
   // ===== Estado global y APIs existentes =====
   import { items, API_BASE, sessionId } from "../lib/stores.js";
-  import { refreshCatalogStatus, detectedEntry, detectedCatalogId, csvLoaded } from "../lib/catalogStore.js";
-  import { tick } from "svelte";
+  import {
+    refreshCatalogStatus,
+    detectedEntry,
+    detectedCatalogId,
+    csvLoaded,
+    // 🔹 Usa el helper para construir el override desde lo más reciente en memoria + form
+    makeExportCatalogOverride,
+  } from "../lib/catalogStore.js";
 
   // ===== Estado local =====
   let loading = false;
@@ -26,15 +32,20 @@
   // Inicializa/actualiza el formulario cat desde stores detectados
   function initCatalogForm() {
     const entry = $detectedEntry || null;
+    // No pisamos lo que ya tenga el form si el valor detectado está vacío
     cat.id_catalogo = $detectedCatalogId || cat.id_catalogo || "";
-    cat.title      = entry?.catalog_title || cat.title || "";
-    // Estos campos son opcionales: publisher, place, language, keywords
+    cat.title       = entry?.catalog_title || cat.title || "";
+    if (!cat.publisher && entry?.catalog_publisher) cat.publisher = entry.catalog_publisher;
+    if (!cat.place && entry?.catalog_place) cat.place = entry.catalog_place;
+    if (!cat.language && entry?.catalog_language) cat.language = entry.catalog_language;
+    if (!cat.keywords && entry?.catalog_keywords) cat.keywords = entry.catalog_keywords;
+
     if (!cat.year && entry?.catalog_publication_year != null) {
       cat.year = String(entry.catalog_publication_year);
     }
   }
 
-  // Llamamos cuando entra la página y antes de previsualizar/exportar
+  // Llamamos cuando entra la página
   refreshCatalogStatus().then(initCatalogForm).catch(()=>{});
 
   // Actualiza un campo del formulario
@@ -100,15 +111,17 @@
 
   // ===== Helpers de catálogo para export =====
   function buildCatalogOverride() {
-    return {
-      catalog_id: (cat.id_catalogo || "").trim() || null,
-      catalog_title: (cat.title || "").trim() || "",
-      catalog_publisher: (cat.publisher || "").trim() || "",
-      catalog_place: (cat.place || "").trim() || "",
+    // Usa el helper del store para mezclar lo que haya en memoria con lo del form
+    const eff = makeExportCatalogOverride($detectedCatalogId, {
+      catalog_id: (cat.id_catalogo || "").trim(),
+      catalog_title: (cat.title || "").trim(),
+      catalog_publisher: (cat.publisher || "").trim(),
+      catalog_place: (cat.place || "").trim(),
       catalog_publication_year: cat.year ? parseInt(cat.year, 10) : null,
-      catalog_language: (cat.language || "").trim() || "",
-      catalog_keywords: (cat.keywords || "").trim() || ""
-    };
+      catalog_language: (cat.language || "").trim(),
+      catalog_keywords: (cat.keywords || "").trim()
+    });
+    return eff;
   }
 
   // ====== EXPORTACIÓN ======
@@ -133,6 +146,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
+      // (el backend ya renombra con session_label si existe)
       a.download = `export_${$sessionId}.zip`;
       document.body.appendChild(a);
       a.click();
@@ -150,10 +164,13 @@
   let previewRows = [];
   let previewHeader = null; // objeto de cabecera del catálogo devuelto por /export_preview
 
+  // Mapa auxiliar para ubicar ítems por nombre (sirve para abrir lightbox desde preview)
+  $: byOriginalName = new Map($items.map(it => [it.original_filename, it.id]));
+
   async function openPreview() {
     loading = true; error = "";
     try {
-      // Asegurar nombres al día y estado de catálogo
+      // Asegurar nombres al día y sincronizar form una sola vez
       await fetch(`${$API_BASE}/preview?session_id=${$sessionId}`);
       await refreshCatalogStatus();
       initCatalogForm();
@@ -174,13 +191,13 @@
       // Cabecera (primer objeto)
       previewHeader = data.metadata && data.metadata.length ? data.metadata[0] : null;
 
-      // Filas por página (del backend), unimos con thumb por original_filename
-      const byOriginal = new Map($items.map(it => [it.original_filename, it]));
+      // Filas por página (del backend), unimos con thumb e id por original_filename
       previewRows = (data.metadata || []).slice(1).map(row => {
-        const it = byOriginal.get(row.original_filename);
+        const id = byOriginalName.get(row.original_filename);
         return {
           ...row,
-          thumb: it ? `${$API_BASE}/thumb/${$sessionId}/${it.id}` : null
+          id: id || null,
+          thumb: id ? `${$API_BASE}/thumb/${$sessionId}/${id}` : null
         };
       });
 
@@ -191,7 +208,41 @@
       loading = false;
     }
   }
+
+  // ====== LIGHTBOX (Vista grande por doble click) ======
+  let showLightbox = false;
+  let lightboxIndex = 0;
+
+  // La lista del lightbox recorre todos los items en el orden actual
+  $: lightboxList = $items || [];
+
+  function openLightbox(id) {
+    if (!lightboxList.length) return;
+    const idx = lightboxList.findIndex(it => it.id === id);
+    lightboxIndex = idx >= 0 ? idx : 0;
+    showLightbox = true;
+  }
+  const closeLightbox = () => (showLightbox = false);
+
+  function prevLightbox() {
+    if (!lightboxList.length) return;
+    lightboxIndex = (lightboxIndex - 1 + lightboxList.length) % lightboxList.length;
+  }
+  function nextLightbox() {
+    if (!lightboxList.length) return;
+    lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
+  }
+
+  // Navegación por teclado cuando el lightbox está abierto
+  function lightboxKeys(e) {
+    if (!showLightbox) return;
+    if (e.key === "Escape") { e.preventDefault(); closeLightbox(); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); prevLightbox(); }
+    if (e.key === "ArrowRight") { e.preventDefault(); nextLightbox(); }
+  }
 </script>
+
+<svelte:window on:keydown={lightboxKeys} />
 
 <!-- ================== Header acciones ================== -->
 <div class="sticky top-0 z-20 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
@@ -292,9 +343,19 @@
         {#each $items as it}
           <div class="border rounded-xl p-3">
             <div class="flex items-start gap-3">
-              <img class="w-20 h-20 object-cover rounded-md border"
-                   src={`${$API_BASE}/thumb/${$sessionId}/${it.id}`}
-                   alt={it.original_filename} />
+              <!-- 👇 Doble click para ver grande -->
+              <button
+                type="button"
+                class="shrink-0"
+                on:dblclick={() => openLightbox(it.id)}
+                aria-label="Doble click para ver grande"
+                title="Doble click para ver grande"
+              >
+                <img class="w-20 h-20 object-cover rounded-md border"
+                     src={`${$API_BASE}/thumb/${$sessionId}/${it.id}`}
+                     alt={it.original_filename} />
+              </button>
+
               <div class="flex-1 min-w-0">
                 <div class="text-xs text-gray-600 truncate">Original</div>
                 <div class="font-medium truncate">{it.original_filename}</div>
@@ -307,8 +368,8 @@
             <!-- Controles por ítem -->
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
               <div>
-                <label class="block text-sm mb-1">Type</label>
-                <select class="input w-full"
+                <label class="block text-sm mb-1" for={"type_"+it.id}>Type</label>
+                <select id={"type_"+it.id} class="input w-full"
                         value={it.type || ""}
                         on:change={(e)=> onEdit(it.id, "type", e.target.value || null)}>
                   <option value="">—</option>
@@ -317,8 +378,8 @@
               </div>
 
               <div>
-                <label class="block text-sm mb-1">Page number</label>
-                <input class="input w-full" type="number"
+                <label class="block text-sm mb-1" for={"page_"+it.id}>Page number</label>
+                <input id={"page_"+it.id} class="input w-full" type="number"
                        value={it.page_number ?? ""}
                        on:change={(e)=> {
                          const v = e.target.value.trim();
@@ -327,8 +388,8 @@
               </div>
 
               <div>
-                <label class="block text-sm mb-1">Scheme</label>
-                <select class="input w-full"
+                <label class="block text-sm mb-1" for={"scheme_"+it.id}>Scheme</label>
+                <select id={"scheme_"+it.id} class="input w-full"
                         value={it.number_scheme || "arabic"}
                         on:change={(e)=> onEdit(it.id, "number_scheme", e.target.value)}>
                   <option value="arabic">arabic</option>
@@ -337,15 +398,15 @@
               </div>
 
               <div>
-                <label class="block text-sm mb-1">Extra (bis, a, v)</label>
-                <input class="input w-full" type="text"
+                <label class="block text-sm mb-1" for={"extra_"+it.id}>Extra (bis, a, v)</label>
+                <input id={"extra_"+it.id} class="input w-full" type="text"
                        value={it.extra || ""}
                        on:change={(e)=> onEdit(it.id, "extra", e.target.value)} />
               </div>
 
               <div>
-                <label class="block text-sm mb-1">Keywords</label>
-                <input class="input w-full" type="text"
+                <label class="block text-sm mb-1" for={"keywords_"+it.id}>Keywords</label>
+                <input id={"keywords_"+it.id} class="input w-full" type="text"
                        value={it.keywords || ""}
                        on:change={(e)=> onEdit(it.id, "keywords", e.target.value)} />
               </div>
@@ -411,9 +472,14 @@
         <h3 class="font-semibold">Export Preview</h3>
         <div class="text-sm text-gray-600">
           Catalog:
-          {#if cat.title}
-            {cat.title}{#if cat.publisher} — {cat.publisher}{/if}
-            {#if cat.year} ({cat.year}){/if}
+          {#if previewHeader?.catalog_title || cat.title}
+            {previewHeader?.catalog_title ?? cat.title}
+            {#if (previewHeader?.catalog_publisher ?? cat.publisher)}
+              — {previewHeader?.catalog_publisher ?? cat.publisher}
+            {/if}
+            {#if (previewHeader?.catalog_publication_year ?? cat.year)}
+              ({previewHeader?.catalog_publication_year ?? cat.year})
+            {/if}
           {:else} — {/if}
         </div>
         <button class="btn" on:click={()=> showPreview=false}>Close</button>
@@ -447,7 +513,16 @@
               <tr class="border-b">
                 <td class="py-2 pr-3">
                   {#if r.thumb}
-                    <img src={r.thumb} alt={r.original_filename} class="w-14 h-14 object-cover rounded-md border" />
+                    <!-- 👇 Doble click también desde el preview -->
+                    <button
+                      type="button"
+                      on:dblclick={() => r.id && openLightbox(r.id)}
+                      aria-label="Doble click para ver grande"
+                      title="Doble click para ver grande"
+                      class="inline-block"
+                    >
+                      <img src={r.thumb} alt={r.original_filename} class="w-14 h-14 object-cover rounded-md border" />
+                    </button>
                   {:else}
                     —
                   {/if}
@@ -465,6 +540,58 @@
 
       <div class="p-4 border-t flex gap-2 justify-end">
         <button class="btn" on:click={()=> showPreview=false}>Close</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ==========================
+     LIGHTBOX / VISTA GRANDE (Export)
+     ========================== -->
+{#if showLightbox && lightboxList.length}
+  <div class="fixed inset-0 z-50">
+    <!-- Fondo clickable (cierra) -->
+    <button
+      type="button"
+      class="absolute inset-0 bg-black/80 z-0"
+      aria-label="Cerrar (clic fuera)"
+      title="Cerrar (clic fuera)"
+      on:click={closeLightbox}
+    />
+    <!-- Contenido por encima -->
+    <div class="relative z-10 w-full h-full flex items-center justify-center">
+      <img
+        src={`${$API_BASE}/file_preview/${$sessionId}/${lightboxList[lightboxIndex].id}?w=2400`}
+        alt={lightboxList[lightboxIndex].original_filename}
+        class="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+        draggable="false"
+      />
+      <!-- Cerrar -->
+      <button
+        class="absolute top-3 right-3 btn"
+        type="button"
+        on:click={closeLightbox}
+        aria-label="Cerrar vista grande"
+        title="Cerrar"
+      >✕</button>
+      <!-- Prev / Next -->
+      <button
+        class="absolute left-3 top-1/2 -translate-y-1/2 btn"
+        type="button"
+        on:click={prevLightbox}
+        aria-label="Anterior"
+        title="Anterior"
+      >←</button>
+      <button
+        class="absolute right-3 top-1/2 -translate-y-1/2 btn"
+        type="button"
+        on:click={nextLightbox}
+        aria-label="Siguiente"
+        title="Siguiente"
+      >→</button>
+      <!-- Indicador -->
+      <div class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 px-3 py-1 rounded-full">
+        {lightboxIndex + 1} / {lightboxList.length}
       </div>
     </div>
   </div>

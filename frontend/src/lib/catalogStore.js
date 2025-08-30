@@ -1,33 +1,43 @@
+// src/lib/catalogStore.js
 import { writable, derived, get } from "svelte/store";
 import { API_BASE, sessionId } from "./stores.js";
 
 /**
- * Mapa: catalog_id -> entrada normalizada
- * Entrada normalizada (claves canónicas):
- *  - catalog_id
- *  - catalog_title
- *  - catalog_author
- *  - catalog_publication_year (number | string)
- *  - catalog_publisher
- *  - catalog_place
- *  - catalog_language
- *  - catalog_keywords
+ * Estado de CSV / Catálogo
+ * - csvLoaded: bandera real (no derivada) de si se ha cargado un CSV
+ * - detectedCatalogId: id detectado a partir de las imágenes
+ * - serverEntry: entrada proveniente del servidor/CSV para el id detectado
+ * - manualOverrides: overrides manuales por id (toman prioridad)
+ * - catalogMap: mapa auxiliar (compatibilidad) id -> última entrada conocida del servidor
  */
-export const catalogMap = writable({});
-
-// ID detectado a partir de los nombres de archivo subidos (BO0624_XXXX)
+export const csvLoaded = writable(false);
 export const detectedCatalogId = writable(null);
+export const serverEntry = writable(null);
+export const manualOverrides = writable({});
+export const catalogMap = writable({}); // mantenido por compatibilidad
 
-// ¿Hay CSV cargado?
-export const csvLoaded = derived(catalogMap, ($m) => Object.keys($m).length > 0);
-
-// Entrada detectada a partir del id detectado
+/**
+ * detectedEntry (vista efectiva):
+ * - Si hay overrides manuales para el id detectado => PRIORIDAD
+ * - Si no, usa serverEntry
+ * - Si no, null
+ */
 export const detectedEntry = derived(
-  [catalogMap, detectedCatalogId],
-  ([$map, $id]) => ($id ? $map[$id] : null)
+  [detectedCatalogId, serverEntry, manualOverrides],
+  ([$id, $server, $manual]) => {
+    if (!$id) return null;
+    const manual = $manual?.[$id];
+    if (manual) return { ...($server || {}), ...manual, catalog_id: $id };
+    if ($server) return { ...$server, catalog_id: $id };
+    return null;
+  }
 );
 
-// Texto de estado para UI (CSV es OPCIONAL)
+/**
+ * Texto de estado para UI:
+ * - No asume que haya CSV (opcional)
+ * - Muestra título si existe, si no el ID detectado
+ */
 export const catalogStatusText = derived(
   [csvLoaded, detectedCatalogId, detectedEntry],
   ([$csv, $id, $entry]) => {
@@ -42,93 +52,141 @@ export const catalogStatusText = derived(
   }
 );
 
-/**
- * Sube un CSV al backend.
- * - Acepta que NO exista sessionId (el backend creará uno).
- * - Guarda en stores: sessionId (si viene), detectedCatalogId y catalogMap[entry].
- */
+/** Sube el CSV al backend y actualiza estado */
 export async function uploadCatalogCSV(file) {
   if (!file) throw new Error("Selecciona un archivo CSV.");
 
+  const api = get(API_BASE);
+  const sid = get(sessionId) || "";
   const form = new FormData();
-  // Si ya tienes sessionId en el store, lo mandamos. Si no, el backend creará uno.
-  form.append("session_id", get(sessionId) || "");
-  // El backend acepta 'file' o 'csv'; usamos 'file'
+  form.append("session_id", sid);
   form.append("file", file);
 
-  const resp = await fetch(`${get(API_BASE)}/upload_csv`, {
-    method: "POST",
-    body: form
-  });
-
+  const resp = await fetch(`${api}/upload_csv`, { method: "POST", body: form });
   const data = await resp.json();
-  if (!resp.ok) {
-    const msg = data?.error || "Error al subir el CSV.";
-    throw new Error(msg);
-  }
+  if (!resp.ok) throw new Error(data?.error || "Error al subir el CSV.");
 
-  // Si el backend creó una nueva sesión, la guardamos
-  if (data.session_id) {
-    sessionId.set(data.session_id);
-  }
+  // Si el backend creó una sesión, persistirla
+  if (data.session_id) sessionId.set(data.session_id);
 
-  // Si devolvió la entrada del catálogo, añadimos al mapa
-  if (data.entry && data.entry.catalog_id) {
-    catalogMap.update((m) => ({ ...m, [data.entry.catalog_id]: data.entry }));
-  }
+  // Marcar que HAY CSV cargado
+  csvLoaded.set(true);
 
-  // Actualiza id detectado si viene en la respuesta
+  // Guardar id detectado si lo hay
   if (typeof data.detected_id !== "undefined") {
     detectedCatalogId.set(data.detected_id || null);
   }
 
-  // Refresca estado por si ya había imágenes subidas
+  // Guardar entry del servidor (para el id detectado)
+  if (data.entry && data.entry.catalog_id) {
+    serverEntry.set(data.entry);
+    // Mantener compatibilidad con 'catalogMap'
+    catalogMap.update(m => ({ ...m, [data.entry.catalog_id]: data.entry }));
+  } else {
+    serverEntry.set(null);
+  }
+
+  // Por si ya había imágenes, refrescar estado del backend (no pisa overrides)
   await refreshCatalogStatus();
-
-  return data; // devuelve ok, loaded, detected_id, entry...
-}
-
-/**
- * Consulta el backend para saber:
- * - id detectado actual
- * - entrada vinculada si existe
- */
-export async function refreshCatalogStatus() {
-  const sid = get(sessionId);
-  if (!sid) return { detected_id: null, entry: null };
-
-  const resp = await fetch(`${get(API_BASE)}/catalog_status?session_id=${sid}`);
-  const data = await resp.json();
-
-  if (!resp.ok) {
-    // Si no hay sesión todavía, no es error grave.
-    return { detected_id: null, entry: null };
-  }
-
-  if (data.entry && data.entry.catalog_id) {
-    catalogMap.update((m) => ({ ...m, [data.entry.catalog_id]: data.entry }));
-  }
-  if (typeof data.detected_id !== "undefined") {
-    detectedCatalogId.set(data.detected_id || null);
-  }
 
   return data;
 }
 
-/**
- * Permite sobrescribir manualmente la entrada en memoria (por ejemplo, si el usuario edita campos).
- * Útil para reflejar cambios en la UI antes del export.
- */
-export function upsertCatalogEntry(entry) {
-  if (!entry || !entry.catalog_id) return;
-  catalogMap.update((m) => ({ ...m, [entry.catalog_id]: { ...m[entry.catalog_id], ...entry } }));
-  detectedCatalogId.set(entry.catalog_id);
+/** Consulta el backend por id detectado y su entry; no pisa overrides */
+export async function refreshCatalogStatus() {
+  const sid = get(sessionId);
+  if (!sid) return { detected_id: null, entry: null };
+
+  const api = get(API_BASE);
+  const resp = await fetch(`${api}/catalog_status?session_id=${encodeURIComponent(sid)}`);
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    // No hay sesión todavía o error leve; no rompas la UI
+    return { detected_id: null, entry: null };
+  }
+
+  if (typeof data.detected_id !== "undefined") {
+    detectedCatalogId.set(data.detected_id || null);
+  }
+
+  if (data.entry && data.entry.catalog_id) {
+    serverEntry.set(data.entry);
+    // Mantener compat con 'catalogMap'
+    catalogMap.update(m => ({ ...m, [data.entry.catalog_id]: data.entry }));
+  } else {
+    serverEntry.set(null);
+  }
+
+  // Nota: aquí NO tocamos csvLoaded; no podemos inferirlo de este endpoint.
+  return data;
 }
 
 /**
- * Borra todos los datos del catálogo en memoria (no obligatorio, por si lo necesitas).
+ * Guarda overrides manuales por id.
+ * - Toman prioridad automáticamente en 'detectedEntry'
+ * - Asegura que el id manual se vuelva el detectado (para que la UI lo use)
  */
+export function upsertCatalogEntry(entry) {
+  const id = entry?.catalog_id;
+  if (!id) return;
+
+  manualOverrides.update(map => ({
+    ...map,
+    [id]: { ...(map[id] || {}), ...entry, catalog_id: id }
+  }));
+
+  // Si el usuario cambia el ID manualmente, hacemos que la UI apunte a ese ID
+  detectedCatalogId.set(id);
+
+  // No tocamos serverEntry; detectedEntry ya prioriza overrides.
+  return entry;
+}
+
+/** Limpia todo el estado del catálogo (por si lo necesitas) */
 export function clearCatalog() {
-  catalogMap.set({});
+  csvLoaded.set(false);
   detectedCatalogId.set(null);
+  serverEntry.set(null);
+  manualOverrides.set({});
+  catalogMap.set({});
+}
+
+export function makeExportCatalogOverride(
+  detectedId,
+  formValues = {}
+) {
+  const m = get(catalogMap);
+
+  // ID efectivo: lo que venga del form o el detectado
+  const effId = (formValues.catalog_id ?? detectedId ?? "").toString().trim();
+  const baseEntry = effId && m[effId] ? m[effId] : {};
+
+  const take = (k) => {
+    const fv = formValues[k];
+    if (fv !== undefined && fv !== null && String(fv).trim() !== "") {
+      return String(fv).trim();
+    }
+    if (baseEntry && baseEntry[k] !== undefined && baseEntry[k] !== null && String(baseEntry[k]).trim() !== "") {
+      return String(baseEntry[k]).trim();
+    }
+    return "";
+  };
+
+  const parseYear = (v) => {
+    if (v === null || v === undefined || String(v).trim() === "") return null;
+    const n = parseInt(String(v).trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  return {
+    catalog_id: effId || null,
+    catalog_title: take("catalog_title"),
+    catalog_author: take("catalog_author"),
+    catalog_publication_year: parseYear(formValues.catalog_publication_year ?? baseEntry.catalog_publication_year),
+    catalog_publisher: take("catalog_publisher"),
+    catalog_place: take("catalog_place"),
+    catalog_language: take("catalog_language"),
+    catalog_keywords: take("catalog_keywords"),
+  };
 }

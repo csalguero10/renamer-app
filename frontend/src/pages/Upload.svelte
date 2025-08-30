@@ -1,14 +1,25 @@
 <script>
+  import { get } from "svelte/store";
+
+  // Estado global
   import { API_BASE, sessionId, items } from "../lib/stores.js";
+
+  // Catálogo (estado y helpers)
   import {
     refreshCatalogStatus,
     catalogStatusText,
     detectedEntry,
     detectedCatalogId,
     upsertCatalogEntry,
+    csvLoaded
   } from "../lib/catalogStore.js";
+
+  // Componente de CSV (Bloque 1)
   import CatalogUpload from "./CatalogUpload.svelte";
-  import { get } from "svelte/store";
+
+  // Etiqueta de sesión corta
+  import { sessionLabel, fetchSessionLabel } from "../lib/storesSessionLabel.js";
+  import { niceSession } from "../lib/utils/niceSession.js";
 
   // ===== Imágenes (Bloque 2) =====
   let dropping = false;
@@ -31,12 +42,13 @@
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.error || "Upload failed");
 
-      if (data.session_id) sessionId.set(data.session_id);
+      if (data.session_id) {
+        sessionId.set(data.session_id);
+        fetchSessionLabel(get(API_BASE), data.session_id);
+      }
       if (data.items) items.set(data.items);
 
-      // Detecta/actualiza catálogo en UI después de subir imágenes
       await refreshCatalogStatus();
-
       imgSuccess = `Cargadas ${data.count ?? data.items?.length ?? 0} imágenes.`;
     } catch (e) {
       imgError = e?.message || "No se pudieron cargar las imágenes.";
@@ -55,38 +67,63 @@
   }
 
   // ===== Metadatos del catálogo (Bloque 3) =====
-  $: editable = {
-    catalog_id: $detectedEntry?.catalog_id || $detectedCatalogId || "",
-    catalog_title: $detectedEntry?.catalog_title || "",
-    catalog_author: $detectedEntry?.catalog_author || "",
-    catalog_publication_year:
-      $detectedEntry?.catalog_publication_year ?? "",
-    catalog_publisher: $detectedEntry?.catalog_publisher || "",
-    catalog_place: $detectedEntry?.catalog_place || "",
-    catalog_language: $detectedEntry?.catalog_language || "",
-    catalog_keywords: $detectedEntry?.catalog_keywords || "",
+  let editable = {
+    catalog_id: "",
+    catalog_title: "",
+    catalog_author: "",
+    catalog_publication_year: "",
+    catalog_publisher: "",
+    catalog_place: "",
+    catalog_language: "",
+    catalog_keywords: "",
   };
 
-  let metaMsg = "";
+  // Modo edición / lectura
+  let isEditing = false; // cambia a true si quieres iniciar editable
+  let _snapshot = null;  // para cancelar cambios
+
+  // Sembrar SOLO cuando NO se edita (evita que se pise lo que escribes)
+  $: if (!isEditing) {
+    editable = {
+      catalog_id: $detectedEntry?.catalog_id || $detectedCatalogId || "",
+      catalog_title: $detectedEntry?.catalog_title || "",
+      catalog_author: $detectedEntry?.catalog_author || "",
+      catalog_publication_year:
+        $detectedEntry?.catalog_publication_year ?? "",
+      catalog_publisher: $detectedEntry?.catalog_publisher || "",
+      catalog_place: $detectedEntry?.catalog_place || "",
+      catalog_language: $detectedEntry?.catalog_language || "",
+      catalog_keywords: $detectedEntry?.catalog_keywords || "",
+    };
+  }
+
+  function startEditing() {
+    _snapshot = JSON.parse(JSON.stringify(editable));
+    isEditing = true;
+  }
+
+  function cancelEditing() {
+    if (_snapshot) editable = _snapshot;
+    isEditing = false;
+  }
 
   function saveEditableToStore() {
-    if (!editable.catalog_id) {
-      metaMsg = "⚠️ Debes indicar un ID de catálogo.";
-      return;
-    }
-    upsertCatalogEntry({
-      catalog_id: editable.catalog_id,
-      catalog_title: editable.catalog_title,
-      catalog_author: editable.catalog_author,
-      catalog_publication_year:
-        editable.catalog_publication_year === "" ? null : Number(editable.catalog_publication_year),
-      catalog_publisher: editable.catalog_publisher,
-      catalog_place: editable.catalog_place,
-      catalog_language: editable.catalog_language,
-      catalog_keywords: editable.catalog_keywords,
-    });
-    metaMsg = "Metadatos guardados en memoria (se usarán al exportar).";
-  }
+  upsertCatalogEntry({
+    catalog_id: editable.catalog_id, // ID no editable
+    catalog_title: editable.catalog_title,
+    catalog_author: editable.catalog_author,
+    catalog_publication_year:
+      editable.catalog_publication_year === "" ? null : Number(editable.catalog_publication_year),
+    catalog_publisher: editable.catalog_publisher,
+    catalog_place: editable.catalog_place,
+    catalog_language: editable.catalog_language,
+    catalog_keywords: editable.catalog_keywords,
+  });
+  isEditing = false;
+  // Opcional: refrescar texto/derivados que dependan del backend (no pisa overrides)
+  refreshCatalogStatus().catch(()=>{});
+}
+
 </script>
 
 <!-- CONTENEDOR GLOBAL, orden secuencial -->
@@ -100,7 +137,10 @@
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-semibold">Upload images</h2>
       <div class="text-sm text-gray-600">
-        Sesión: <span class="font-mono">{$sessionId || "—"}</span>
+        Sesión:
+        <span class="font-mono">
+          {niceSession($sessionId, $sessionLabel) || "—"}
+        </span>
       </div>
     </div>
 
@@ -126,7 +166,6 @@
       on:keydown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.querySelector("#fileInput")?.click(); }}
     >
       <div class="text-center py-10">
-        <!--<div class="text-4xl mb-2">📄</div>-->
         <div class="text-sm text-gray-600 mb-3">Arrastra tus imágenes aquí</div>
         <div>
           <label class="btn cursor-pointer" for="fileInput">Seleccionar archivos</label>
@@ -146,63 +185,62 @@
     </div>
   </div>
 
-  <!-- BLOQUE 3: Metadatos del catálogo (editable) -->
+  <!-- BLOQUE 3: Metadatos del catálogo (modo lectura/edición) -->
   <div class="card">
-    <h3 class="font-semibold mb-2">Resumen del catálogo detectado (editable)</h3>
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold">Resumen del catálogo detectado (editable)</h3>
 
-    <div class="grid sm:grid-cols-2 gap-3">
+      {#if !isEditing}
+        <button class="btn btn-outline" type="button" on:click={startEditing}>Editar</button>
+      {:else}
+        <div class="ml-auto flex gap-2">
+          <button class="btn btn-outline" type="button" on:click={cancelEditing}>Cancelar</button>
+          <button class="btn" type="button" on:click={saveEditableToStore}>Guardar cambios</button>
+        </div>
+      {/if}
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-3 mt-2">
       <div>
         <label class="block text-sm" for="catId">ID catálogo</label>
-        <input id="catId" class="input w-full" bind:value={editable.catalog_id} placeholder="BO0624_5445" />
+        <!-- SIEMPRE deshabilitado -->
+        <input id="catId" class="input w-full" bind:value={editable.catalog_id} disabled placeholder="BO0624_5445" />
       </div>
 
       <div>
         <label class="block text-sm" for="catTitle">Título</label>
-        <input id="catTitle" class="input w-full" bind:value={editable.catalog_title} placeholder="El arte de la navegación" />
+        <input id="catTitle" class="input w-full" bind:value={editable.catalog_title} placeholder="El arte de la navegación" readonly={!isEditing} />
       </div>
 
       <div>
         <label class="block text-sm" for="catAuthor">Autor</label>
-        <input id="catAuthor" class="input w-full" bind:value={editable.catalog_author} placeholder="Juan Perez" />
+        <input id="catAuthor" class="input w-full" bind:value={editable.catalog_author} placeholder="Juan Perez" readonly={!isEditing} />
       </div>
 
       <div>
         <label class="block text-sm" for="catYear">Año de publicación</label>
-        <input id="catYear" type="number" class="input w-full" bind:value={editable.catalog_publication_year} placeholder="1985" />
+        <input id="catYear" type="number" class="input w-full" bind:value={editable.catalog_publication_year} placeholder="1985" readonly={!isEditing} />
       </div>
 
       <div>
         <label class="block text-sm" for="catPublisher">Publisher</label>
-        <input id="catPublisher" class="input w-full" bind:value={editable.catalog_publisher} placeholder="Editorial X" />
+        <input id="catPublisher" class="input w-full" bind:value={editable.catalog_publisher} placeholder="Editorial X" readonly={!isEditing} />
       </div>
 
       <div>
         <label class="block text-sm" for="catPlace">Place</label>
-        <input id="catPlace" class="input w-full" bind:value={editable.catalog_place} placeholder="Ciudad / País" />
+        <input id="catPlace" class="input w-full" bind:value={editable.catalog_place} placeholder="Ciudad / País" readonly={!isEditing} />
       </div>
 
       <div>
         <label class="block text-sm" for="catLanguage">Language</label>
-        <input id="catLanguage" class="input w-full" bind:value={editable.catalog_language} placeholder="Español" />
+        <input id="catLanguage" class="input w-full" bind:value={editable.catalog_language} placeholder="Español" readonly={!isEditing} />
       </div>
 
       <div class="sm:col-span-2">
         <label class="block text-sm" for="catKeywords">Keywords</label>
-        <input id="catKeywords" class="input w-full" bind:value={editable.catalog_keywords} placeholder="palabra1, palabra2, ..." />
+        <input id="catKeywords" class="input w-full" bind:value={editable.catalog_keywords} placeholder="palabra1, palabra2, ..." readonly={!isEditing} />
       </div>
     </div>
-
-    <div class="mt-3 flex gap-2">
-      <button class="btn" type="button" on:click={saveEditableToStore}>
-        Guardar cambios en memoria
-      </button>
-      <button class="btn" type="button" on:click={refreshCatalogStatus}>
-        Volver a cargar desde servidor
-      </button>
-    </div>
-
-    {#if metaMsg}
-      <p class="text-xs text-gray-600 mt-2">{metaMsg}</p>
-    {/if}
   </div>
 </div>

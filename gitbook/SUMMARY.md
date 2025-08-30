@@ -1,3 +1,3 @@
 # Table of contents
 
-* [Changelog](README.md)
+* [Preservia App](README.md)

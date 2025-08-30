@@ -13,176 +13,222 @@
 /* ===========================
    Design tokens (paleta)
    =========================== */
-:root{
-  /* Fondo y texto */
-  --bg:           #F8F9FA;
-  --text:         #1F2937; /* gris oscuro legible */
-  --muted:        #6B7280; /* texto secundario */
-  --border:       #E5E7EB;
+:root {
+    /* Fondo y texto */
+    --bg: #F8F9FA;
+    --text: #1F2937;
+    /* gris oscuro legible */
+    --muted: #6B7280;
+    /* texto secundario */
+    --border: #E5E7EB;
 
-  /* Primario (morado oscuro “corporativo”) */
-  --primary:      #4C51C6;  /* ~ indigo-600 */
-  --primary-700:  #3E44B4;  /* hover más oscuro */
-  --primary-50:   #EEF2FF;  /* sutil de fondo */
-  --ring:         rgba(76, 81, 198, 0.28);
+    /* Primario (morado oscuro “corporativo”) */
+    --primary: #4C51C6;
+    /* ~ indigo-600 */
+    --primary-700: #3E44B4;
+    /* hover más oscuro */
+    --primary-50: #EEF2FF;
+    /* sutil de fondo */
+    --ring: rgba(76, 81, 198, 0.28);
 
-  /* Éxito / acento */
-  --success:      #10B981;
+    /* Éxito / acento */
+    --success: #10B981;
 }
 
 /* ===========================
    Base
    =========================== */
-:root { color-scheme: light; }
-html, body{
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root {
+    color-scheme: light;
+}
+
+html,
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* ===========================
    Contenedores
    =========================== */
-header{
-  padding: .75rem 1rem;
-  border-radius: 16px;
-  background: #FFFFFF;
-  box-shadow:
-    0 10px 24px rgba(15,23,42,.05),
-    0  2px  6px rgba(15,23,42,.03);
-  border: 1px solid rgba(229,231,235,.6);
+header {
+    padding: .75rem 1rem;
+    border-radius: 16px;
+    background: #FFFFFF;
+    box-shadow:
+        0 10px 24px rgba(15, 23, 42, .05),
+        0 2px 6px rgba(15, 23, 42, .03);
+    border: 1px solid rgba(229, 231, 235, .6);
 }
 
-.card{
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow:
-    0 10px 24px rgba(15,23,42,.05),
-    0  2px  6px rgba(15,23,42,.03);
-  border: 1px solid rgba(229,231,235,.6);
+.card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow:
+        0 10px 24px rgba(15, 23, 42, .05),
+        0 2px 6px rgba(15, 23, 42, .03);
+    border: 1px solid rgba(229, 231, 235, .6);
 }
 
 /* ===========================
    Botones
    =========================== */
-.btn{
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  padding: .55rem 1rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 600;
-  line-height: 1.1;
-  transition:
-    transform .12s ease,
-    box-shadow .15s ease,
-    background-color .15s ease,
-    border-color .15s ease,
-    opacity .15s ease;
-  box-shadow:
-    0 8px 16px rgba(76,81,198,.18),
-    0 2px  4px rgba(76,81,198,.10);
-  cursor: pointer;
-  user-select: none;
+.btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .55rem 1rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    line-height: 1.1;
+    transition:
+        transform .12s ease,
+        box-shadow .15s ease,
+        background-color .15s ease,
+        border-color .15s ease,
+        opacity .15s ease;
+    box-shadow:
+        0 8px 16px rgba(76, 81, 198, .18),
+        0 2px 4px rgba(76, 81, 198, .10);
+    cursor: pointer;
+    user-select: none;
 }
-.btn:hover{
-  background: var(--primary-700);
-  box-shadow:
-    0 10px 22px rgba(76,81,198,.22),
-    0  3px  6px rgba(76,81,198,.12);
-  transform: translateY(-1px);
+
+.btn:hover {
+    background: var(--primary-700);
+    box-shadow:
+        0 10px 22px rgba(76, 81, 198, .22),
+        0 3px 6px rgba(76, 81, 198, .12);
+    transform: translateY(-1px);
 }
-.btn:active{
-  transform: translateY(0);
-  box-shadow:
-    0 6px 12px rgba(76,81,198,.18),
-    0 2px  4px rgba(76,81,198,.10);
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow:
+        0 6px 12px rgba(76, 81, 198, .18),
+        0 2px 4px rgba(76, 81, 198, .10);
 }
-.btn:focus-visible{
-  outline: none;
-  box-shadow:
-    0 0 0 4px var(--ring),
-    0 8px 16px rgba(76,81,198,.18);
+
+.btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 4px var(--ring),
+        0 8px 16px rgba(76, 81, 198, .18);
 }
-.btn[disabled]{ opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+.btn[disabled] {
+    opacity: .55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
 
 /* Botón secundario “outline” */
-.btn-outline{
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  box-shadow: none;
+.btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    box-shadow: none;
 }
-.btn-outline:hover{
-  background: var(--primary-50);
-  box-shadow: 0 6px 14px rgba(76,81,198,.12);
+
+.btn-outline:hover {
+    background: var(--primary-50);
+    box-shadow: 0 6px 14px rgba(76, 81, 198, .12);
 }
 
 /* ===========================
    Inputs y selects
    =========================== */
-.input{
-  width: 100%;
-  background: #fff;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: .56rem .75rem;
-  line-height: 1.2;
-  transition:
-    box-shadow .15s ease,
-    border-color .15s ease,
-    background-color .15s ease;
-  box-shadow: inset 0 1px 2px rgba(15,23,42,.03);
+.input {
+    width: 100%;
+    background: #fff;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .56rem .75rem;
+    line-height: 1.2;
+    transition:
+        box-shadow .15s ease,
+        border-color .15s ease,
+        background-color .15s ease;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, .03);
 }
-.input::placeholder{ color: #9CA3AF; }
-.input:focus{
-  outline: none;
-  border-color: var(--primary);
-  box-shadow:
-    0 0 0 4px var(--ring),
-    inset 0 1px 2px rgba(15,23,42,.03);
+
+.input::placeholder {
+    color: #9CA3AF;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow:
+        0 0 0 4px var(--ring),
+        inset 0 1px 2px rgba(15, 23, 42, .03);
 }
 
 /* ⚠️ Quitamos la flecha doble de los select:
    dejamos la nativa del navegador */
-select.input{
-  appearance: auto;
-  -webkit-appearance: auto;
-  -moz-appearance: auto;
-  background-image: none; /* elimina flecha custom previa */
-  padding-right: .8rem;
+select.input {
+    appearance: auto;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    background-image: none;
+    /* elimina flecha custom previa */
+    padding-right: .8rem;
 }
 
 /* ===========================
    Badges, textos, utilidades
    =========================== */
-.badge{
-  display: inline-flex;
-  align-items: center;
-  padding: .18rem .5rem;
-  border-radius: 9999px;
-  background: rgba(76,81,198,.10);
-  color: var(--primary);
-  font-weight: 600;
-  font-size: .75rem;
-  border: 1px solid rgba(76,81,198,.18);
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .5rem;
+    border-radius: 9999px;
+    background: rgba(76, 81, 198, .10);
+    color: var(--primary);
+    font-weight: 600;
+    font-size: .75rem;
+    border: 1px solid rgba(76, 81, 198, .18);
 }
 
-hr{ border-color: var(--border); }
-.text-muted,.text-gray-600{ color: var(--muted) !important; }
-img{ border-radius: 10px; }
+hr {
+    border-color: var(--border);
+}
+
+.text-muted,
+.text-gray-600 {
+    color: var(--muted) !important;
+}
+
+img {
+    border-radius: 10px;
+}
 
 /* Scrollbars sutiles */
-*::-webkit-scrollbar{ height: 8px; width: 8px; }
-*::-webkit-scrollbar-track{ background:#eef0f3; border-radius:10px; }
-*::-webkit-scrollbar-thumb{ background:#cfd6de; border-radius:10px; }
-*::-webkit-scrollbar-thumb:hover{ background:#b8c0cb; }
+*::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #eef0f3;
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #cfd6de;
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #b8c0cb;
+}

@@ -1,39 +1,58 @@
 <script>
-  // Páginas
-  import Upload from "./pages/Upload.svelte";
-  import Gallery from "./pages/Gallery.svelte";
-  import Viewer from "./pages/Viewer.svelte";
-  import ExportPage from "./pages/Export.svelte";
+  /* ===== Páginas (alias en MAYÚSCULAS) ===== */
+  import UPLOAD from "./pages/Upload.svelte";
+  import GALLERY from "./pages/Gallery.svelte";
+  import VIEWER from "./pages/Viewer.svelte";
+  import EXPORT from "./pages/Export.svelte";
 
-  // Navegación + sesión base
+  /* Mapa nombre->componente (CLAVES deben coincidir con tu store `pages`) */
+  const COMPONENTS = {
+    "Upload":   UPLOAD,
+    "Galería":  GALLERY,
+    "Visor":    VIEWER,
+    "Exportar": EXPORT
+  };
+
+  /* Mapa: clave de página -> texto a mostrar (en NAV en mayúsculas) */
+  const DISPLAY = {
+    "Upload":   "UPLOAD",
+    "Galería":  "GALLERY",
+    "Visor":    "VIEWER",
+    "Exportar": "EXPORT"
+  };
+
+  /* ===== Navegación + sesión base ===== */
   import { currentPage, pages, sessionId, API_BASE } from "./lib/stores.js";
 
-  // Label de sesión desde backend (con guardas)
+  /* Label de sesión desde backend */
   import * as SessionLabel from "./lib/storesSessionLabel.js";
   const sessionLabel = SessionLabel.sessionLabel;
   const fetchSessionLabel = SessionLabel.fetchSessionLabel;
 
-  // ID de catálogo detectado (si hay CSV/imagenes)
+  /* ID de catálogo detectado (si hay CSV/imagenes) */
   import { detectedCatalogId } from "./lib/catalogStore.js";
 
-  // Formateador “bonito”
+  /* Formateador “bonito” */
   import { niceSession } from "./lib/utils/niceSession.js";
 
-  // CSS global
+  /* CSS global */
   import "./app.css";
 
-  // Trae etiqueta desde backend cuando hay sessionId
+  /* Trae etiqueta desde backend cuando hay sessionId */
   $: if ($sessionId && typeof fetchSessionLabel === "function") {
     Promise.resolve(fetchSessionLabel($API_BASE, $sessionId)).catch(() => {});
   }
 
-  // Nombre final a mostrar
+  /* Nombre final a mostrar en el header */
   $: displayName = niceSession($sessionId, $sessionLabel, $detectedCatalogId);
 
-  // Renombrar sesión (guarda en backend y refresca store)
+  /* Componente actual (fallback a UPLOAD si no hay coincidencia) */
+  $: CurrentComponent = COMPONENTS[$currentPage] || UPLOAD;
+
+  /* Renombrar sesión */
   async function renameSession() {
     const name = window.prompt("Nuevo nombre de sesión:", displayName || "");
-    if (name == null) return; // cancelado
+    if (name == null) return;
     const label = name.trim();
     try {
       const resp = await fetch(`${$API_BASE}/session_label_set`, {
@@ -54,12 +73,13 @@
 </script>
 
 <!-- ====== Header ancho completo con menú centrado ====== -->
-<div class="top-nav max-w-[138rem] mx-auto p-4 space-y-4">
-  <div class="top-nav__inner max-w-[138rem] mx-auto px-4 py-3 grid grid-cols-[auto_1fr_auto] items-center gap-4">
-    <!-- Izquierda: título -->
-        <div class="brand">
-      <img src="/logo.png" alt="Archives Renamer" class="brand__logo" />
+<div class="top-nav mx-auto">
+  <div class="top-nav__inner mx-auto px-4 py-3 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
+    <!-- Izquierda: logo/título -->
+    <div class="brand flex items-center gap-2">
+      <!-- Pon tu logo en /public/logo.png -->
+      <img src="/logo.png" alt="Archives Renamer" class="brand__logo" />
     </div>
 
     <!-- Centro: navegación -->
@@ -70,7 +90,7 @@
           aria-current={$currentPage === p ? 'page' : undefined}
           on:click={() => currentPage.set(p)}
         >
-          {p}
+          {DISPLAY[p] ?? p}
         </button>
       {/each}
     </nav>
@@ -91,15 +111,7 @@
   </div>
 </div>
 
-<!-- ====== Contenedor de páginas ====== -->
+<!-- ====== Contenedor de páginas (render dinámico) ====== -->
 <main class="max-w-7xl mx-auto p-4 space-y-4">
-  {#if $currentPage === "Upload"}
-    <Upload />
-  {:else if $currentPage === "Galería"}
-    <Gallery />
-  {:else if $currentPage === "Visor"}
-    <Viewer />
-  {:else if $currentPage === "Exportar"}
-    <ExportPage />
-  {/if}
+  <svelte:component this={CurrentComponent} />
 </main>

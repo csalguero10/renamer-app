@@ -271,7 +271,7 @@ img {
 .top-nav__inner {
     max-width: 80rem; /* 1280px */
     margin: 0 auto;
-    padding: .25rem 1rem;
+    padding: 1.2rem 1rem;
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;

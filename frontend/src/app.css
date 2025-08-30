@@ -1,7 +1,7 @@
 /* ===========================
    Fuentes (debe ir primero)
    =========================== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
 
 /* ===========================
    Tailwind (si lo usas)
@@ -253,4 +253,61 @@ img {
 
 *::-webkit-scrollbar-thumb:hover {
     background: #b8c0cb;
+}
+
+/* ====== Top navigation (full width) ====== */
+:root {
+  /* ayuda para transparencias */
+  --primary-rgb: 76, 81, 198; /* de #4C51C6 */
+}
+
+.top-nav {
+  width: 100%;
+  background: rgba(var(--primary-rgb), 0.08); /* morado claro translúcido */
+  backdrop-filter: saturate(120%) blur(6px);
+  border-bottom: 1px solid var(--border);
+}
+
+.top-nav__inner {
+    max-width: 80rem; /* 1280px */
+    margin: 0 auto;
+    padding: .25rem 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Enlaces del menú (texto bold morado, sin contenedor) */
+.nav-link {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: .25rem .25rem;
+  color: var(--primary-700);
+  font-weight: 700;
+  line-height: 1.2;
+  border-radius: .5rem;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Estado activo: bloque sólido (como tu botón original) */
+.nav-link.is-active {
+  background: var(--primary);
+  color: #fff;
+  padding: .45rem .75rem;
+  border-radius: 10px;
+  box-shadow:
+    0 8px 16px rgba(var(--primary-rgb), .18),
+    0 2px 4px rgba(var(--primary-rgb), .10);
+}
+
+.nav-link.is-active:hover {
+  text-decoration: none;
+  background: var(--primary-700);
 }

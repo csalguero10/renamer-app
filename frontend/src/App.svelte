@@ -53,36 +53,46 @@
   }
 </script>
 
-<div class="max-w-7xl mx-auto p-4 space-y-4">
-  <header class="flex flex-wrap items-center justify-between gap-3 card">
-    <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-semibold">Archives Renamer</h1>
+<!-- ====== Header ancho completo con menú centrado ====== -->
+<div class="top-nav max-w-[138rem] mx-auto p-4 space-y-4">
+  <div class="top-nav__inner max-w-[138rem] mx-auto px-4 py-3 grid grid-cols-[auto_1fr_auto] items-center gap-4">
+    <!-- Izquierda: título -->
+        <div class="brand">
+      <img src="/logo.png" alt="Archives Renamer" class="brand__logo" />
+
     </div>
-    <nav class="flex gap-2">
+
+    <!-- Centro: navegación -->
+    <nav class="justify-self-center flex items-center gap-3" aria-label="Main">
       {#each pages as p}
         <button
-          class="btn"
-          aria-current={$currentPage === p ? "page" : undefined}
+          class={`nav-link ${$currentPage === p ? 'is-active' : ''}`}
+          aria-current={$currentPage === p ? 'page' : undefined}
           on:click={() => currentPage.set(p)}
         >
           {p}
         </button>
       {/each}
     </nav>
-    <div class="text-sm text-gray-600 flex items-center gap-2">
-        Sesión: {displayName}
-        <button
-          class="btn-link"
-          type="button"
-          on:click={renameSession}
-          title="Renombrar sesión"
-          aria-label="Renombrar sesión"
-        >
-          Rename
-        </button>
-      </div>
-  </header>
 
+    <!-- Derecha: sesión + rename -->
+    <div class="justify-self-end flex items-center gap-2 text-sm text-gray-700">
+      <span>Sesión: {displayName}</span>
+      <button
+        class="btn-link"
+        type="button"
+        on:click={renameSession}
+        title="Renombrar sesión"
+        aria-label="Renombrar sesión"
+      >
+        Rename
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== Contenedor de páginas ====== -->
+<main class="max-w-7xl mx-auto p-4 space-y-4">
   {#if $currentPage === "Upload"}
     <Upload />
   {:else if $currentPage === "Galería"}
@@ -92,4 +102,4 @@
   {:else if $currentPage === "Exportar"}
     <ExportPage />
   {/if}
-</div>
+</main>

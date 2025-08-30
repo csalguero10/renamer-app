@@ -72,13 +72,13 @@
     <div class="text-sm text-gray-600 flex items-center gap-2">
         Sesión: {displayName}
         <button
-          class="btn btn-outline"
+          class="btn-link"
           type="button"
           on:click={renameSession}
           title="Renombrar sesión"
           aria-label="Renombrar sesión"
         >
-          ✏️
+          Rename
         </button>
       </div>
   </header>

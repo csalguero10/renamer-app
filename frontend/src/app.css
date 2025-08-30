@@ -144,6 +144,28 @@ header {
     box-shadow: 0 6px 14px rgba(76, 81, 198, .12);
 }
 
+.btn-link {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.btn-link:hover {
+    text-decoration-thickness: 3px;
+}
+
+.btn-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
+}
+
+
 /* ===========================
    Inputs y selects
    =========================== */

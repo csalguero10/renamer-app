@@ -33,7 +33,11 @@ renamer-app/
         ├── App.svelte
         ├── lib/
         │   ├── stores.js
-        │   └── utils.js
+        │   └── catalogStore.js
+        │   └── utilsSessionLabel.js
+        │   └── utils.js        
+        │   └── utils/
+        │      └── niceSession.js
         └── pages/
             ├── Upload.svelte
             ├── Gallery.svelte

@@ -1,11 +1,8 @@
-# Renamer Flow — Web App (Flask + Svelte + Tailwind)
+# Preservia — Web App (Flask + Svelte + Tailwind/CSS)
 
-Aplicación web para gestionar el flujo de digitalización de documentos patrimoniales:
-carga, clasificación automática (heurísticas + OCR y CNN opcional), validación/edición masiva,
-numeración flexible (arábiga/romana, extras, número fantasma), renombrado inteligente
-y exportación (ZIP de imágenes renombradas + `metadata.json`).
+First version of a web application designed to manage the metadata workflow for heritage documents, aimed at archivists and librarians. It supports features such as upload and automatic classification (using heuristics and OCR), bulk validation and editing, flexible numbering with support for Arabic/Roman numerals, extras, and ghost numbers, as well as intelligent file renaming and an export function that creates a ZIP file with the renamed images and a metadata.json file.
 
-## Estructura
+## Structure
 ```
 renamer-app/
 ├── backend/
@@ -45,7 +42,7 @@ renamer-app/
             └── Export.svelte
 ```
 
-## Requisitos
+## Requirements
 - Python 3.10+
 - Node 18+
 - (Opcional) Tesseract instalado en el sistema para OCR (`pytesseract`). Si no está, se usa fallback sin OCR.

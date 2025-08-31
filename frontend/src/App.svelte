@@ -1,11 +1,11 @@
 <script>
-  /* ===== Páginas (alias en MAYÚSCULAS) ===== */
+  /* ===== Páginas ===== */
   import UPLOAD from "./pages/Upload.svelte";
   import GALLERY from "./pages/Gallery.svelte";
   import VIEWER from "./pages/Viewer.svelte";
   import EXPORT from "./pages/Export.svelte";
 
-  /* Mapa nombre->componente (CLAVES deben coincidir con tu store `pages`) */
+  /* Mapa nombre->componente (CLAVES deben coincidir con los store `pages`) */
   const COMPONENTS = {
     "Upload":   UPLOAD,
     "Galería":  GALLERY,
@@ -32,7 +32,7 @@
   /* ID de catálogo detectado (si hay CSV/imagenes) */
   import { detectedCatalogId } from "./lib/catalogStore.js";
 
-  /* Formateador “bonito” */
+  /* Formateador sesion mas lindo, corto */
   import { niceSession } from "./lib/utils/niceSession.js";
 
   /* CSS global */
@@ -78,7 +78,7 @@
 
     <!-- Izquierda: logo/título -->
     <div class="brand flex items-center gap-2">
-      <!-- Pon tu logo en /public/logo.png -->
+      <!-- logo Preservia en /public/logo.png -->
       <img src="/logo.png" alt="Archives Renamer" class="brand__logo" />
     </div>
 

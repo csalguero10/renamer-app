@@ -1,10 +1,10 @@
 /* ===========================
-   Fuentes (debe ir primero)
+   Fuentes 
    =========================== */
 @import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
 
 /* ===========================
-   Tailwind (si lo usas)
+   Tailwind (no los uso pero lo dejo por si acaso)
    =========================== */
 @tailwind base;
 @tailwind components;
@@ -22,7 +22,7 @@
     /* texto secundario */
     --border: #E5E7EB;
 
-    /* Primario (morado oscuro “corporativo”) */
+    /* Primario (morado oscuro) */
     --primary: #4C51C6;
     /* ~ indigo-600 */
     --primary-700: #3E44B4;
@@ -196,8 +196,6 @@ header {
         inset 0 1px 2px rgba(15, 23, 42, .03);
 }
 
-/* ⚠️ Quitamos la flecha doble de los select:
-   dejamos la nativa del navegador */
 select.input {
     appearance: auto;
     -webkit-appearance: auto;
@@ -296,7 +294,7 @@ img {
   text-underline-offset: 4px;
 }
 
-/* Estado activo: bloque sólido (como tu botón original) */
+/* Estado activo: bloque sólido  */
 .nav-link.is-active {
   background: var(--primary);
   color: #fff;

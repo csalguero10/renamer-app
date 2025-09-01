@@ -1,8 +1,15 @@
 import os
 CATEGORIES = [
-    "portada", "contraportada", "guardas", "velinas",
-    "frontispicio", "texto", "ilustración", "inserto",
-    "página blanca", "referencia"
+    "cover",
+    "back cover",
+    "endpapers",
+    "flyleaves",
+    "frontispiece",
+    "text",
+    "illustration",
+    "insert",
+    "blank page",
+    "reference"
 ]
 
 def predict_with_cnn(pil_image):

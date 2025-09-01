@@ -9,7 +9,7 @@ export async function fetchSessionLabel(API_BASE, sessionId) {
     const resp = await fetch(`${API_BASE}/session_label?session_id=${encodeURIComponent(sessionId)}`);
     if (!resp.ok) return;
     const data = await resp.json();
-    // asume { label: "..." } o algo similar; ajústalo a tu backend real
+    // asume { label: "..." } o algo similar
     sessionLabel.set((data && (data.label || data.name)) || "");
   } catch {
     // silencioso

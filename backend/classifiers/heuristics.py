@@ -125,9 +125,9 @@ def guess_type(pil_img: Image.Image, original_name: str, index: int, total: int,
     # -------- Hints por nombre ----------
     name_l = (original_name or "").lower()
     if "ins" in name_l:
-        return "inserto"
+        return "insert"
     if "ref" in name_l:
-        return "referencia"
+        return "reference"
 
     # -------- Hints por posición ----------
     if (
@@ -137,28 +137,28 @@ def guess_type(pil_img: Image.Image, original_name: str, index: int, total: int,
         or name_l.endswith("_000001.tif")
         or name_l.endswith("_000001.tiff")
     ):
-        return "portada"
+        return "cover"
 
     if total >= 2 and index == 1:
         # segunda imagen frecuentemente son "guardas"
-        return "guardas"
+        return "endpapers"
 
     if 0 < index < total - 1:
         # Heurística muy simple para contraportada: anterior a ref/ins
         next_name = (neighbors_names[index + 1] or "").lower()
         if ("ref" in next_name) or ("ins" in next_name):
-            return "contraportada"
+            return "backcover"
 
     # -------- Análisis de imagen ----------
     gray = to_gray_np(pil_img)
 
     # 2) Página “en blanco” (estructura, no color)
     if is_blank_from_gray(gray):
-        return "página blanca"
+        return "blank page"
 
     # 3) Velinas / páginas translúcidas muy claras
     if is_low_contrast(gray) and float(gray.mean()) > 210.0:
-        return "velinas"
+        return "flyleaves"
 
     # 4) Bordes + OCR para diferenciar ilustración vs texto
     ed = edge_density(gray)
@@ -174,17 +174,17 @@ def guess_type(pil_img: Image.Image, original_name: str, index: int, total: int,
 
     if ed > EDGE_ILLUST and word_count < WORDS_TEXT:
         # Muchos bordes pero muy poco texto -> ilustración
-        return "ilustración"
+        return "illustration"
 
     # Si OCR ve suficiente texto, es texto (o frontispicio si hint)
     if word_count >= WORDS_TEXT:
         if "front" in name_l or "frontis" in name_l:
-            return "frontispicio"
-        return "texto"
+            return "frontispiece"
+        return "text"
 
     # 5) Fallbacks: usa señales débiles restantes
     #    (mejor inclinarse hacia "texto" para minimizar falsos positivos de ilustración)
     if color_variance(pil_img) > 40.0 and ed > 0.02 and word_count < 10:
-        return "ilustración"
+        return "illustration"
 
-    return "texto"
+    return "text"

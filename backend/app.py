@@ -370,7 +370,7 @@ def classify():
                 else:
                     it["type"] = guess_type(im, it["original_filename"], idx, total, names)
         except Exception:
-            it["type"] = "texto"
+            it["type"] = "text"
         it["validated"] = False
 
     return jsonify({"session_id": session_id, "items": state["items"]})

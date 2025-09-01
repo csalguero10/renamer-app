@@ -43,18 +43,18 @@ export const catalogStatusText = derived(
     ([$csv, $id, $entry]) => {
         if (!$csv) {
             return $id
-                ? `CSV no cargado (opcional). ID detectado: ${$id}`
-                : "CSV no cargado (opcional).";
+                ? `CSV not loaded (optional). Detected ID: ${$id}`
+                : "CSV not loaded (optional).";
         }
-        if (!$id) return "Aún no se detecta un ID de catálogo.";
-        if ($entry) return `Catálogo detectado: ${$entry.catalog_title || $id}`;
-        return `ID de catálogo '${$id}' no encontrado en el CSV.`;
+        if (!$id) return "No catalog ID detected yet.";
+        if ($entry) return `Detected catalog: ${$entry.catalog_title || $id}`;
+        return `Catalog ID '${$id}' not found in CSV.`;
     }
 );
 
 /** Sube el CSV al backend y actualiza estado */
 export async function uploadCatalogCSV(file) {
-    if (!file) throw new Error("Selecciona un archivo CSV.");
+    if (!file) throw new Error("Select a CSV file.");
 
     const api = get(API_BASE);
     const sid = get(sessionId) || "";
@@ -64,7 +64,7 @@ export async function uploadCatalogCSV(file) {
 
     const resp = await fetch(`${api}/upload_csv`, { method: "POST", body: form });
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data?.error || "Error al subir el CSV.");
+    if (!resp.ok) throw new Error(data?.error || "Error uploading the CSV.");
 
     // Si el backend creó una sesión, persistirla
     if (data.session_id) sessionId.set(data.session_id);

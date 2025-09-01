@@ -58,19 +58,19 @@
     cat = { ...cat, [field]: value };
   }
 
-  // Campos de página por ítem
+  // Campos de página por ítem (pendiente de pasar a español)
   const types = [
-    "portada",
-    "contraportada",
-    "guardas",
-    "velinas",
-    "frontispicio",
-    "texto",
-    "ilustración",
-    "inserto",
-    "página blanca",
-    "referencia",
-    "sin-tipo",
+    "cover",
+    "back cover",
+    "endpapers",
+    "flyleaves",
+    "frontispiece",
+    "text",
+    "illustration",
+    "insert",
+    "blank page",
+    "reference",
+    "no-type",
   ];
 
   function onEdit(id, field, value) {
@@ -326,7 +326,7 @@
 
       <div class="grid grid-cols-1 gap-3">
         <div>
-          <label class="block text-sm mb-1" for="cat_id">id_catalogo</label>
+          <label class="block text-sm mb-1" for="cat_id">catalog_id</label>
           <input
             id="cat_id"
             class="input w-full"
@@ -340,7 +340,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_title">title</label>
+          <label class="block text-sm mb-1" for="cat_title">Title</label>
           <input
             id="cat_title"
             class="input w-full"
@@ -351,7 +351,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_publisher">publisher</label
+          <label class="block text-sm mb-1" for="cat_publisher">Publisher</label
           >
           <input
             id="cat_publisher"
@@ -363,7 +363,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_place">place</label>
+          <label class="block text-sm mb-1" for="cat_place">Place</label>
           <input
             id="cat_place"
             class="input w-full"
@@ -374,7 +374,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_year">year</label>
+          <label class="block text-sm mb-1" for="cat_year">Year</label>
           <input
             id="cat_year"
             class="input w-full"
@@ -386,7 +386,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_language">language</label>
+          <label class="block text-sm mb-1" for="cat_language">Language</label>
           <input
             id="cat_language"
             class="input w-full"
@@ -397,7 +397,7 @@
         </div>
 
         <div>
-          <label class="block text-sm mb-1" for="cat_keywords">keywords</label>
+          <label class="block text-sm mb-1" for="cat_keywords">Keywords</label>
           <input
             id="cat_keywords"
             class="input w-full"
@@ -409,7 +409,7 @@
         </div>
 
         <div class="text-xs text-gray-500">
-          Estos metadatos se incluirán en <code>metadata.json</code> al exportar.
+            This metadata will be included in <code>metadata.json</code> when exporting.
         </div>
       </div>
     </div>
@@ -640,27 +640,27 @@
             {previewHeader?.catalog_id ?? (cat.id_catalogo || "—")}
           </div>
           <div>
-            <span class="text-gray-500">title:</span>
+            <span class="text-gray-500">Title:</span>
             {previewHeader?.catalog_title ?? (cat.title || "—")}
           </div>
           <div>
-            <span class="text-gray-500">publisher:</span>
+            <span class="text-gray-500">Publisher:</span>
             {previewHeader?.catalog_publisher ?? (cat.publisher || "—")}
           </div>
           <div>
-            <span class="text-gray-500">place:</span>
+            <span class="text-gray-500">Place:</span>
             {previewHeader?.catalog_place ?? (cat.place || "—")}
           </div>
           <div>
-            <span class="text-gray-500">year:</span>
+            <span class="text-gray-500">Year:</span>
             {previewHeader?.catalog_publication_year ?? (cat.year || "—")}
           </div>
           <div>
-            <span class="text-gray-500">language:</span>
+            <span class="text-gray-500">Language:</span>
             {previewHeader?.catalog_language ?? (cat.language || "—")}
           </div>
           <div class="sm:col-span-2 lg:col-span-3">
-            <span class="text-gray-500">keywords:</span>
+            <span class="text-gray-500">Keywords:</span>
             {previewHeader?.catalog_keywords ?? (cat.keywords || "—")}
           </div>
         </div>
@@ -727,8 +727,8 @@
     <button
       type="button"
       class="absolute inset-0 bg-black/80 z-0"
-      aria-label="Cerrar (clic fuera)"
-      title="Cerrar (clic fuera)"
+      aria-label="Close (click outside)"
+      title="Close (click outside)"
       on:click={closeLightbox}
     />
     <!-- Contenido por encima -->
@@ -744,23 +744,23 @@
         class="absolute top-3 right-3 btn"
         type="button"
         on:click={closeLightbox}
-        aria-label="Cerrar vista grande"
-        title="Cerrar">✕</button
+        aria-label="Close large view"
+        title="Close">✕</button
       >
       <!-- Prev / Next -->
       <button
         class="absolute left-3 top-1/2 -translate-y-1/2 btn"
         type="button"
         on:click={prevLightbox}
-        aria-label="Anterior"
-        title="Anterior">←</button
+        aria-label="Previous"
+        title="Previous">←</button
       >
       <button
         class="absolute right-3 top-1/2 -translate-y-1/2 btn"
         type="button"
         on:click={nextLightbox}
-        aria-label="Siguiente"
-        title="Siguiente">→</button
+        aria-label="Next"
+        title="Next">→</button
       >
       <!-- Indicador -->
       <div

@@ -1,4 +1,4 @@
-// Muestra un nombre de sesión agradable:
+// Muestra un nombre de sesión mas corto:
 // 1) etiqueta guardada (si existe)
 // 2) ID de catálogo detectado (si existe)
 // 3) fallback compacto: 8 chars del UUID sin guiones (en mayúsculas)

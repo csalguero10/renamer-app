@@ -8,8 +8,8 @@
   // Resultado filtrado (se muestra en la grilla principal)
   $: filtered = $items.filter(it => {
     if (filterStatus !== "all") {
-      if (filterStatus === "pendiente" && it.validated) return false;
-      if (filterStatus === "validada" && !it.validated) return false;
+      if (filterStatus === "pending" && it.validated) return false;
+      if (filterStatus === "validated" && !it.validated) return false;
     }
     if (filterType !== "all" && it.type !== filterType) return false;
     return true;
@@ -30,10 +30,10 @@
         body: JSON.stringify({ session_id: $sessionId })
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Error clasificando");
+      if (!resp.ok) throw new Error(data.error || "Error classifying");
       items.set(data.items);
     } catch (e) {
-      classifyError = e.message || "No se pudo clasificar.";
+      classifyError = e.message || "Could not classify.";
     } finally {
       isClassifying = false;
     }
@@ -86,10 +86,10 @@
       anchorIndex = 0;
     }
   }
-
+// cambiar a inglés
   const types = [
-    "portada","contraportada","guardas","velinas","frontispicio",
-    "texto","ilustración","inserto","página blanca","referencia","sin-tipo"
+    "cover","back cover","endpapers","flyleaves","frontispiece",
+    "text","illustration","insert","blank page","reference","no-type"
   ];
 
   // ---------------- Lightbox (vista grande) ----------------
@@ -266,9 +266,9 @@
     <!-- ============ PASO 1: CLASIFICAR Y FILTRAR ============ -->
     <div class="card py-2">
       <div class="flex items-center justify-between">
-        <h3 class="font-semibold">Paso 1: Clasificar y Filtrar</h3>
+        <h3 class="font-semibold">Step 1: Classify and Filter</h3>
         <div class="text-sm text-gray-600">
-          Seleccionadas: <span class="font-semibold">{$selection.size}</span>
+            Selected: <span class="font-semibold">{$selection.size}</span>
         </div>
       </div>
 
@@ -276,7 +276,7 @@
         <!-- Acción principal -->
         <div class="flex items-center gap-3">
           <button class="btn" type="button" on:click={classify} disabled={isClassifying} aria-busy={isClassifying}>
-            {isClassifying ? "Clasificando..." : "Clasificación automática"}
+            {isClassifying ? "Classifying..." : "Automatic classification"}
           </button>
 
           {#if isClassifying}
@@ -295,26 +295,26 @@
         <!-- Derecha: seleccionar/limpiar + filtros -->
         <div class="ml-auto flex flex-wrap items-end gap-2">
           <button class="btn" type="button" on:click={toggleSelectAll} disabled={isClassifying}>
-            {filtered.length>0 && filtered.every(it => $selection.has(it.id)) ? "Deseleccionar todas" : "Seleccionar todas"}
+            {filtered.length>0 && filtered.every(it => $selection.has(it.id)) ? "Deselect all" : "Select all"}
           </button>
 
           <button class="btn btn-outline" type="button" on:click={clearSelection} disabled={isClassifying}>
-            Limpiar selección
+            Clear selection
           </button>
 
           <div>
-            <label class="block text-sm" for="filterStatus">Estado</label>
+            <label class="block text-sm" for="filterStatus">Status</label>
             <select id="filterStatus" class="input" bind:value={filterStatus} disabled={isClassifying}>
-              <option value="all">Todos</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="validada">Validada</option>
+              <option value="all">All</option>
+              <option value="pendiente">Pending</option>
+              <option value="validada">Validated</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-sm" for="filterType">Tipo</label>
+            <label class="block text-sm" for="filterType">Type</label>
             <select id="filterType" class="input" bind:value={filterType} disabled={isClassifying}>
-              <option value="all">Todos</option>
+              <option value="all">All</option>
               {#each types as t}<option value={t}>{t}</option>{/each}
             </select>
           </div>
@@ -325,10 +325,10 @@
     <!-- ============ PASO 3: REVISAR Y EXPORTAR ============ -->
     <div class="card py-2">
       <div class="flex items-center gap-2">
-        <h3 class="font-semibold">Paso 3: Revisar y Exportar</h3>
+        <h3 class="font-semibold">Step 3: Review and Export</h3>
         <div class="ml-auto flex items-center gap-2">
           <button class="btn btn-outline" type="button" on:click={refreshPreview}>
-            Previsualizar nombres
+            Preview filenames
           </button>
           <button
             class="btn"
@@ -338,7 +338,7 @@
             title="Abrir vista grande"
             disabled={filtered.length === 0}
           >
-            Ver grande
+            View large
           </button>
         </div>
       </div>
@@ -403,29 +403,29 @@
   <!-- ===== SIDEBAR: PASO 2 (filas + botón unificado) ===== -->
   <aside class="hidden lg:block">
     <div class="card h-full overflow-auto">
-      <h3 class="font-semibold">Paso 2: Asignar Metadatos</h3>
+      <h3 class="font-semibold">Step 2: Assign Metadata</h3>
 
       <!-- Fila 1: tipo + validación -->
       <div class="mt-3 grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-sm" for="bulkType">Asignar tipo</label>
+            <label class="block text-sm" for="bulkType">Assign type</label>
           <select id="bulkType" class="input" bind:value={uiBulkType}>
             <option value="blank">—</option>
-            <option value="__mixed" disabled>Varios tipos</option>
+            <option value="__mixed" disabled>Mixed types</option>
             {#each types as t}<option value={t}>{t}</option>{/each}
           </select>
-          <div class="text-[11px] text-gray-500 mt-1">
-            {#if uiBulkType === 'blank'}Sin selección o sin tipo asignado.{/if}
-            {#if uiBulkType === '__mixed'}Selección mixta de tipos.{/if}
-          </div>
+            <div class="text-[11px] text-gray-500 mt-1">
+            {#if uiBulkType === 'blank'}No selection or no type assigned.{/if}
+            {#if uiBulkType === '__mixed'}Mixed type selection.{/if}
+            </div>
         </div>
 
         <div>
-          <label class="block text-sm" for="bulkVal">Validación</label>
-          <select id="bulkVal" class="input">
+            <label class="block text-sm" for="bulkVal">Validation</label>
+            <select id="bulkVal" class="input">
             <option value="">—</option>
-            <option value="true">Marcar validada</option>
-            <option value="false">Marcar pendiente</option>
+            <option value="true">Mark as validated</option>
+            <option value="false">Mark as pending</option>
           </select>
         </div>
       </div>
@@ -433,13 +433,13 @@
       <!-- Fila 2: inicio + intervalo -->
       <div class="mt-3 grid grid-cols-2 gap-3 items-start">
         <div>
-          <label class="block text-sm" for="bulkStart">Numeración: inicio</label>
+            <label class="block text-sm" for="bulkStart">Numbering: start</label>
           <input id="bulkStart" type="number" class="input" placeholder="1" aria-describedby="help-start" />
-          <div id="help-start" class="mt-1 text-[11px] text-gray-500">Sólo si aplica</div>
+            <div id="help-start" class="mt-1 text-[11px] text-gray-500">Only if applicable</div>
         </div>
 
         <div>
-          <label class="block text-sm" for="bulkStep">Intervalo</label>
+            <label class="block text-sm" for="bulkStep">Step</label>
           <input id="bulkStep" type="number" class="input" placeholder="1" value="1" />
         </div>
       </div>
@@ -448,10 +448,10 @@
       <!-- Fila 3: esquema + extra -->
       <div class="mt-3 grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-sm" for="bulkScheme">Esquema</label>
+          <label class="block text-sm" for="bulkScheme">Scheme</label>
           <select id="bulkScheme" class="input">
-            <option value="arabic">Arábiga</option>
-            <option value="roman">Romana</option>
+            <option value="arabic">Arabic</option>
+            <option value="roman">Roman</option>
           </select>
         </div>
         <div>
@@ -464,24 +464,24 @@
       <div class="mt-3 grid grid-cols-2 gap-3">
         <label class="flex items-center gap-2">
           <input id="bulkGhost" type="checkbox" />
-          <span>Número fantasma</span>
+          <span>Ghost number</span>
         </label>
         <label class="flex items-center gap-2">
           <input id="bulkGraphic" type="checkbox" />
-          <span>¿Hay gráfico?</span>
+          <span>Is there a graphic?</span>
         </label>
       </div>
 
       <!-- Fila 5: keywords full-width -->
       <div class="mt-3">
-        <label class="block text-sm" for="bulkKeywords">Keywords (opcional)</label>
-        <input id="bulkKeywords" type="text" class="input" placeholder="palabra1, palabra2, ..." />
+        <label class="block text-sm" for="bulkKeywords">Keywords (optional)</label>
+        <input id="bulkKeywords" type="text" class="input" placeholder="word1, word2, ..." />
       </div>
 
       <!-- Fila 6: separador + botón unificado -->
       <hr class="my-4" />
       <button class="btn w-full" type="button" on:click={applyUnifiedChanges}>
-        Aplicar cambios
+        Apply changes
       </button>
 
       <!-- Fila 7: Validar selección (secundario) -->
@@ -495,7 +495,7 @@
               anchorIndex = null;
             });
           }}>
-          Validar selección
+            Validate selection
         </button>
       </div>
     </div>

@@ -244,7 +244,19 @@ $: if ($items && thumbnailContainer) {
 }
 
 // Tipos
-const types = ["portada","contraportada","guardas","velinas","frontispicio","texto","ilustración","inserto","página blanca","referencia","sin-tipo"];
+const types = [
+  "cover",
+  "back cover",
+  "endpapers",
+  "flyleaves",
+  "frontispiece",
+  "text",
+  "illustration",
+  "insert",
+  "blank page",
+  "reference",
+  "no-type"
+];
 </script>
 
 <svelte:window on:keydown={keyHandler} on:mouseup={onMouseUp} on:resize={onResize} />
@@ -324,20 +336,20 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
           <!-- Indicador de carga -->
           {#if !isImageLoaded}
             <div class="absolute inset-0 flex items-center justify-center bg-white/50 rounded-2xl">
-              <div class="text-gray-600">Cargando imagen...</div>
+              <div class="text-gray-600">Loading image...</div>
             </div>
           {/if}
         </div>
 
         <div class="flex justify-between mt-2">
           <button class="btn" on:click={prev} disabled={currentIndex === 0}>
-            ← Anterior
+            ← Previous
           </button>
           <span class="text-sm text-gray-600 self-center">
             {currentIndex + 1} / {ordered.length}
           </span>
           <button class="btn" on:click={next} disabled={currentIndex === ordered.length - 1}>
-            Siguiente →
+            Next →
           </button>
         </div>
       {/if}
@@ -347,9 +359,9 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
     <aside class="md:col-span-1 space-y-2">
       {#if current}
         <div class="card">
-          <h3 class="font-semibold mb-2">Metadatos</h3>
+          <h3 class="font-semibold mb-2">Metadata</h3>
 
-          <label class="block text-sm mb-1" for="pageType">Tipo de página</label>
+          <label class="block text-sm mb-1" for="pageType">Page type</label>
           <select 
             id="pageType" 
             class="input w-full mb-2" 
@@ -359,7 +371,7 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
             {#each types as t}<option value={t}>{t}</option>{/each}
           </select>
 
-          <label class="block text-sm mb-1" for="pageNumber">Numeración</label>
+          <label class="block text-sm mb-1" for="pageNumber">Page number</label>
           <div class="flex gap-2 mb-2">
             <input 
               id="pageNumber" 
@@ -369,15 +381,15 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
               bind:value={current.page_number} 
               on:change={(e)=>updateItem({page_number: parseInt(e.target.value)})} 
             />
-            <label class="sr-only" for="scheme">Esquema</label>
+            <label class="sr-only" for="scheme">Schema</label>
             <select 
               id="scheme" 
               class="input" 
               bind:value={current.number_scheme} 
               on:change={(e)=>updateItem({number_scheme: e.target.value})}
             >
-              <option value="arabic">Arábiga</option>
-              <option value="roman">Romana</option>
+                <option value="arabic">Arabic</option>
+              <option value="roman">Roman</option>
             </select>
           </div>
 
@@ -407,7 +419,7 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
               checked={current.ghost_number} 
               on:change={(e)=>updateItem({ghost_number: e.target.checked})} 
             />
-            <label for="ghost">Número fantasma</label>
+            <label for="ghost">Ghost number</label>
           </div>
 
           <div class="flex items-center gap-2 mb-2">
@@ -417,7 +429,7 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
               checked={current.graphic} 
               on:change={(e)=>updateItem({graphic: e.target.checked})} 
             />
-            <label for="graphic">Gráfico</label>
+            <label for="graphic">Graphic</label>
           </div>
 
           <div class="flex items-center gap-2">
@@ -427,11 +439,11 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
               checked={current.validated} 
               on:change={(e)=>updateItem({validated: e.target.checked})} 
             />
-            <label for="validated">Validada</label>
+            <label for="validated">Validated</label>
           </div>
 
           <div class="mt-2 text-xs text-gray-600">
-            Vista previa token:
+            Preview token:
             {#if current.page_number}
               {formatNumber(parseInt(current.page_number), current.number_scheme, current.ghost_number)}
             {/if}
@@ -518,7 +530,7 @@ const types = ["portada","contraportada","guardas","velinas","frontispicio","tex
     
     <!-- Indicador de posición -->
     <div class="text-center text-xs text-gray-500 mt-2">
-      {currentIndex + 1} de {ordered.length} imágenes
+      {currentIndex + 1} of {ordered.length} images
     </div>
   </div>
 </div>

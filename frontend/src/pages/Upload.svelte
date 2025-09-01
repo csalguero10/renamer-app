@@ -49,9 +49,9 @@
       if (data.items) items.set(data.items);
 
       await refreshCatalogStatus();
-      imgSuccess = `Cargadas ${data.count ?? data.items?.length ?? 0} imágenes.`;
-    } catch (e) {
-      imgError = e?.message || "No se pudieron cargar las imágenes.";
+      imgSuccess = `Uploaded ${data.count ?? data.items?.length ?? 0} images.`;
+        } catch (e) {
+      imgError = e?.message || "Images could not be uploaded.";
     } finally {
       uploading = false;
     }
@@ -159,16 +159,16 @@
       class={`mt-4 card border-dashed border-2 ${dropping ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
       role="button"
       tabindex="0"
-      aria-label="Arrastra y suelta imágenes o pulsa para seleccionar"
+      aria-label="Drag and drop images or click to select"
       on:dragover={onDragOver}
       on:dragleave={onDragLeave}
       on:drop={onDrop}
       on:keydown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.querySelector("#fileInput")?.click(); }}
     >
       <div class="text-center py-10">
-        <div class="text-sm text-gray-600 mb-3">Arrastra tus imágenes aquí</div>
+        <div class="text-sm text-gray-600 mb-3">Drag your images here</div>
         <div>
-          <label class="btn cursor-pointer" for="fileInput">Seleccionar archivos</label>
+          <label class="btn cursor-pointer" for="fileInput">Select files</label>
           <input
             id="fileInput"
             type="file"
@@ -179,7 +179,7 @@
           />
         </div>
         {#if uploading}
-          <div class="mt-3 text-sm text-gray-600">Subiendo…</div>
+          <div class="mt-3 text-sm text-gray-600">Uploading…</div>
         {/if}
       </div>
     </div>
@@ -188,37 +188,37 @@
   <!-- BLOQUE 3: Metadatos del catálogo (modo lectura/edición) -->
   <div class="card">
     <div class="flex items-center justify-between">
-      <h3 class="font-semibold">Resumen del catálogo detectado (editable)</h3>
+      <h3 class="font-semibold">Detected catalog summary (editable)</h3>
 
       {#if !isEditing}
-        <button class="btn btn-outline" type="button" on:click={startEditing}>Editar</button>
+        <button class="btn btn-outline" type="button" on:click={startEditing}>Edit</button>
       {:else}
         <div class="ml-auto flex gap-2">
-          <button class="btn btn-outline" type="button" on:click={cancelEditing}>Cancelar</button>
-          <button class="btn" type="button" on:click={saveEditableToStore}>Guardar cambios</button>
+          <button class="btn btn-outline" type="button" on:click={cancelEditing}>Cancel</button>
+          <button class="btn" type="button" on:click={saveEditableToStore}>Save changes</button>
         </div>
       {/if}
     </div>
 
     <div class="grid sm:grid-cols-2 gap-3 mt-2">
       <div>
-        <label class="block text-sm" for="catId">ID catálogo</label>
+        <label class="block text-sm" for="catId">ID catalog</label>
         <!-- SIEMPRE deshabilitado -->
         <input id="catId" class="input w-full" bind:value={editable.catalog_id} disabled placeholder="BO0624_5445" />
       </div>
 
       <div>
-        <label class="block text-sm" for="catTitle">Título</label>
+        <label class="block text-sm" for="catTitle">Title</label>
         <input id="catTitle" class="input w-full" bind:value={editable.catalog_title} placeholder="El arte de la navegación" readonly={!isEditing} />
       </div>
 
       <div>
-        <label class="block text-sm" for="catAuthor">Autor</label>
+        <label class="block text-sm" for="catAuthor">Author</label>
         <input id="catAuthor" class="input w-full" bind:value={editable.catalog_author} placeholder="Juan Perez" readonly={!isEditing} />
       </div>
 
       <div>
-        <label class="block text-sm" for="catYear">Año de publicación</label>
+        <label class="block text-sm" for="catYear">Publication year</label>
         <input id="catYear" type="number" class="input w-full" bind:value={editable.catalog_publication_year} placeholder="1985" readonly={!isEditing} />
       </div>
 

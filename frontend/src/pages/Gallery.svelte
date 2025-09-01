@@ -306,8 +306,8 @@
             <label class="block text-sm" for="filterStatus">Status</label>
             <select id="filterStatus" class="input" bind:value={filterStatus} disabled={isClassifying}>
               <option value="all">All</option>
-              <option value="pendiente">Pending</option>
-              <option value="validada">Validated</option>
+              <option value="pending">Pending</option>
+              <option value="validated">Validated</option>
             </select>
           </div>
 
@@ -325,7 +325,7 @@
     <!-- ============ PASO 3: REVISAR Y EXPORTAR ============ -->
     <div class="card py-2">
       <div class="flex items-center gap-2">
-        <h3 class="font-semibold">Step 3: Review and Export</h3>
+        <h3 class="font-semibold">Review and Extratools</h3>
         <div class="ml-auto flex items-center gap-2">
           <button class="btn btn-outline" type="button" on:click={refreshPreview}>
             Preview filenames

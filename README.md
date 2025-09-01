@@ -45,71 +45,76 @@ renamer-app/
 ## Requirements
 - Python 3.10+
 - Node 18+
-- (Opcional) Tesseract instalado en el sistema para OCR (`pytesseract`). Si no está, se usa fallback sin OCR.
-- (Opcional) PyTorch si desea usar un modelo CNN (se carga automáticamente si existe `backend/classifiers/model.pth`).
+- (Optional) Tesseract installed in the system for OCR (`pytesseract`).  
+  If not present, a fallback without OCR will be used.
+- (Optional) PyTorch if you want to use a CNN model (it will be loaded automatically if `backend/classifiers/model.pth` exists).
 
-## Backend — Cómo ejecutar
+## Backend — How to run
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Ejecutar
+# Run
 FLASK_APP=app.py FLASK_ENV=development flask run --port 5001
-# o
+# or
 python app.py
 ```
-El backend corre en: http://localhost:5001
+Backend runs on: http://localhost:5001
 
-## Frontend — Cómo ejecutar
+## Frontend — How to run
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-El frontend corre en: http://localhost:5173
+Backend runs on: http://localhost:5173
 
-> Nota: el frontend asume el backend en `http://localhost:5001`. Cambia `VITE_API_BASE` en `frontend/.env.development` si lo necesitas.
+> **Note**: the frontend assumes the backend is running at `http://localhost:5001`.  
+> Change `VITE_API_BASE` in `frontend/.env.development` if needed.
 
-## Flujo básico
-1. **Upload**: arrastrar/soltar o seleccionar múltiples imágenes (JPG/PNG/TIFF).
-2. **Classify**: heurísticas + OCR para sugerir tipo de página (todo queda *pendiente de validación*).
-3. **Revisar/Editar**: en *Galería* y *Visor*, selección múltiple, asignaciones masivas, numeración flexible (inicio+intervalo, arábiga/romana, extras, número fantasma, "gráfico" sí/no).
-4. **Preview**: ver renombrado propuesto en tiempo real.
-5. **Export**: descargar ZIP con imágenes renombradas y `metadata.json`.
+## Basic workflow
+1. **Upload**: drag & drop or select multiple images (JPG/PNG/TIFF).
+2. **Classify**: heuristics + OCR to suggest page type (all remain *pending validation*).
+3. **Review/Edit**: in *Gallery* and *Viewer*, multi-selection, bulk assignments, flexible numbering (start+interval, Arabic/Roman, extras, ghost number, "graphic" yes/no).
+4. **Preview**: see proposed renaming in real time.
+5. **Export**: download ZIP with renamed images and `metadata.json`.
 
-## Endpoints principales (Flask)
-- `POST /upload` — Subir archivos. Devuelve `session_id` y estado inicial.
-- `POST /classify` — Clasificación automática. Marca elementos como `validated: false`.
-- `POST /validate` — Ediciones por lote/individuales (tipo, numeración, extras, etc.).
-- `GET  /preview?session_id=...` — Calcula `new_filename` para todos.
-- `GET  /session?session_id=...` — Estado completo de la sesión.
-- `GET  /file/<session_id>/<image_id>` — Descarga/visualización de la imagen.
-- `POST /export` — Genera ZIP + `metadata.json` y lo devuelve.
+## Main Endpoints (Flask)
+- `POST /upload` — Upload files. Returns `session_id` and initial state.
+- `POST /classify` — Automatic classification. Marks items as `validated: false`.
+- `POST /validate` — Batch/individual edits (type, numbering, extras, etc.).
+- `GET  /preview?session_id=...` — Computes `new_filename` for all.
+- `GET  /session?session_id=...` — Full session state.
+- `GET  /file/<session_id>/<image_id>` — Download/view an image.
+- `POST /export` — Generates ZIP + `metadata.json` and returns it.
 
-## Notas de clasificación (heurísticas)
-- **Página blanca**: >90% píxeles blancos / sin bordes / sin texto detectado.
-- **Texto**: OCR detecta líneas/palabras.
-- **Ilustración**: muchos bordes y baja densidad de texto.
-- **Portada**: primera imagen o nombre termina en `_000001`.
-- **Contraportada**: imagen anterior a archivos con `ref` o `ins` en el nombre.
-- **Guardas**: segunda imagen (`_000002`) y la previa a la contraportada.
-- **Inserto**: nombre contiene `ins`.
-- **Referencia**: nombre contiene `ref`.
-- **Velinas**: muy brillante, muy poca variación de intensidad (bajo contraste).
+## Classification notes (heuristics)
+- **Blank page**: >90% white pixels / no borders / no detected text.
+- **Text**: OCR detects lines/words.
+- **Illustration**: many edges and low text density.
+- **Cover**: first image or filename ends with `_000001`.
+- **Back cover**: image before files with `ref` or `ins` in the name.
+- **Endpapers**: second image (`_000002`) and the one before the back cover.
+- **Insert**: filename contains `ins`.
+- **Reference**: filename contains `ref`.
+- **Tissue/Velum (velinas)**: very bright, very low intensity variation (low contrast).
 
-## Renombrado
-`new = <original_sin_ext> + ' ' + <type> + ('_' + token_num) + <extra> + <ext>`  
-- `token_num` en arábigo o romano.
-- Si `ghost_number = true`, el `token_num` se envuelve en `[n]`.
-- Si `page_number = false` → solo agrega el tipo.
+## Renaming
+new = <original_no_ext> + ' ' + <type> + ('_' + token_num) + <extra> + <ext>
 
-Ejemplos:
-- `BO0624_4866_000003_l texto_4.jpg`
-- `BO0624_4866_000005 texto_[3].jpg`
-- `BO0624_4866_000007 texto_2bis.png`
+- `token_num` in Arabic or Roman.
+- If `ghost_number = true`, the `token_num` is wrapped in `[n]`.
+- If `page_number = false` → only adds the type.
+
+### Examples
+- `BO0624_4866_000003_l text_4.jpg`
+- `BO0624_4866_000005 text_[3].jpg`
+- `BO0624_4866_000007 text_2bis.png`
 
 ---
 
-> **Consejo**: si desea entrenar una CNN, guarde su `model.pth` en `backend/classifiers/` con salida de 10 clases (`portada`, `contraportada`, `guardas`, `velinas`, `frontispicio`, `texto`, `ilustración`, `inserto`, `página blanca`, `referencia`). El backend la usará de apoyo a las heurísticas.
+> **Tip**: if you want to train a CNN, save your `model.pth` in `backend/classifiers/` with 10 output classes  
+> (`cover`, `back cover`, `endpapers`, `tissue/velum`, `frontispiece`, `text`, `illustration`, `insert`, `blank page`, `reference`).  
+> The backend will use it to support heuristic classification.

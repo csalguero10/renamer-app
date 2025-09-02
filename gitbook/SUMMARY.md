@@ -1,3 +1,3 @@
 # Table of contents
 
-* [Key Features](README.md)
+* [Preservia App](README.md)

@@ -2,5 +2,5 @@
 
 * [What is Preservia?](README.md)
 * [Key Features](key-features.md)
-* [¿Por qué renombrar los archivos?](por-que-renombrar-los-archivos.md)
+* [Why Renaming Files Still Matters](why-renaming-files-still-matters.md)
 * [Future Development Fases](future-development-fases.md)

@@ -13,9 +13,16 @@ from PIL import Image, ImageOps
 from classifiers.ocr_utils import get_text_stats  # devuelve dict con word_count, etc.
 
 CATEGORIES = [
-    "portada", "contraportada", "guardas", "velinas",
-    "frontispicio", "texto", "ilustración", "inserto",
-    "página blanca", "referencia"
+    "cover",
+    "back cover",
+    "endpapers",
+    "flyleaves",
+    "frontispiece",
+    "text",
+    "illustration",
+    "insert",
+    "blank page",
+    "reference"
 ]
 
 # ---------- Utilidades de imagen ----------
@@ -166,7 +173,7 @@ def guess_type(pil_img: Image.Image, original_name: str, index: int, total: int,
     # OCR stats (robusto a falta de Tesseract; ver ocr_utils)
     ocr = get_text_stats(pil_img)
     word_count = int(ocr.get("word_count", 0))
-    # avg_conf = ocr.get("avg_conf", None)  # disponible si quieres afinación futura
+    # avg_conf = ocr.get("avg_conf", None) 
 
     # UMBRALES (ajustables):
     EDGE_ILLUST = 0.05   # 5% de pixeles-borde ~ imagen rica en detalle
@@ -187,4 +194,4 @@ def guess_type(pil_img: Image.Image, original_name: str, index: int, total: int,
     if color_variance(pil_img) > 40.0 and ed > 0.02 and word_count < 10:
         return "illustration"
 
-    return "text"
+    return "illustration"

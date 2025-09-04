@@ -9,7 +9,7 @@ from PIL import Image, ImageOps
 from utils.file_utils import is_allowed, ensure_session_dirs, save_upload, thumb_path, make_thumbnail
 from utils.metadata_store import new_session_state, new_item
 from utils.renamer import compute_new_name
-# from utils.export_utils import export_zip  # (si prefieres tu helper)
+# from utils.export_utils import export_zip  
 
 from classifiers.heuristics import guess_type
 from classifiers.cnn import predict_with_cnn
